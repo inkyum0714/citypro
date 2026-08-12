@@ -1,0 +1,169 @@
+{
+  "physics": {
+    "friction_coefficient_asphalt_highway": 0.72,
+    "gravitational_deceleration_scale": 25.0,
+    "max_acceleration": 12.0,
+    "min_follow_gap": 8.0,
+    "reaction_time_buffer_factor": 0.15
+  },
+  "vehicle": {
+    "emergency_spawn_probability": 0.08,
+    "lead_gap_no_obstacle": 999.0,
+    "mass_kg": 1000.0,
+    "mass_reference_kg": 1000.0,
+    "use_collision_avoidance": true,
+    "avoidance_scan_radius": 55.0,
+    "avoidance_ttc_seconds": 2.2,
+    "collision_radius_scale": 0.55,
+    "collision_min_closing_speed": 2.0,
+    "collision_velocity_damp": 0.35,
+    "collision_restitution": 0.25,
+    "accident_event_cooldown": 4.0,
+    "police_response_seconds": 3.5,
+    "tow_response_seconds": 5.0
+  },
+  "vehicle_types": {
+    "car": {
+      "length": 14,
+      "width": 8,
+      "height": 4.5,
+      "mass_kg": 1000,
+      "space_occupancy": 1.0,
+      "speed_range": [45, 70],
+      "weight": 0.62,
+      "colors": ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#ecf0f1"]
+    },
+    "truck": {
+      "length": 22,
+      "width": 10,
+      "height": 10,
+      "mass_kg": 8000,
+      "space_occupancy": 2.2,
+      "speed_range": [28, 42],
+      "weight": 0.18,
+      "colors": ["#d35400", "#7f8c8d", "#2c3e50"]
+    },
+    "bus": {
+      "length": 26,
+      "width": 11,
+      "height": 9.5,
+      "mass_kg": 12000,
+      "space_occupancy": 2.6,
+      "speed_range": [24, 36],
+      "weight": 0.12,
+      "colors": ["#f39c12", "#16a085"]
+    },
+    "emergency": {
+      "length": 16,
+      "width": 9,
+      "height": 5.5,
+      "mass_kg": 1800,
+      "space_occupancy": 1.15,
+      "speed_range": [55, 80],
+      "weight": 0.08,
+      "colors": ["#ffffff"]
+    }
+  },
+  "traffic_manager": {
+    "default_dt": 0.033,
+    "default_spawn_rate": 0.14,
+    "auto_spawn_enabled": false,
+    "spawn_click_max_distance": 42.0,
+    "congestion_vehicles_per_road_normalizer": 8.0
+  },
+  "main": {
+    "simulation_step_sleep_seconds": 0.033,
+    "spawn_rate_min": 0.02,
+    "spawn_rate_max": 0.5,
+    "flask_debug": true,
+    "flask_port": 5000,
+    "public_base_url": "",
+    "trust_proxy_headers": false
+  },
+  "phase2": {
+    "node_merge_distance": 16.0,
+    "road_touch_distance": 16.0,
+    "min_split_progress": 0.05,
+    "lane_offset_scale": 0.88,
+    "spawn_clearance_distance": 28.0,
+    "spawn_progress_window": 0.08,
+    "spawn_min_edge_weight": 0.1,
+    "turn_signal_min_seconds": 0.45,
+    "lane_change_duration_seconds": 0.55,
+    "lane_change_headway_trigger": 42.0,
+    "min_target_lane_gap_front": 22.0,
+    "min_target_lane_gap_rear": 18.0
+  },
+  "phase3": {
+    "use_idm": true,
+    "use_mobil": true,
+    "idm_a_max": 12.0,
+    "idm_b_comfort": 16.0,
+    "idm_delta": 4.0,
+    "idm_time_headway": 1.6,
+    "idm_min_gap": 10.0,
+    "idm_default_lead_length": 14.0,
+    "mobil_politeness": 0.25,
+    "mobil_accel_threshold": 0.2,
+    "mobil_b_safe": 14.0
+  },
+  "events": {
+    "auto_interval_seconds": 60.0,
+    "auto_spawn_chance": 0.05
+  },
+  "phase4": {
+    "use_routing": false,
+    "use_traffic_signals": true,
+    "emergency_ignore_signal": true,
+    "signal_min_edges_at_node": 2,
+    "signal_green_seconds": 14.0,
+    "signal_yellow_seconds": 3.0,
+    "signal_red_seconds": 14.0,
+    "stop_line_offset_from_exit": 22.0,
+    "edge_end_is_destination": true
+  },
+  "phase5": {
+    "camera_min_zoom": 0.15,
+    "camera_max_zoom": 4.0,
+    "camera_fit_padding": 80.0,
+    "pygame_window_width": 1280,
+    "pygame_window_height": 720,
+    "pygame_target_fps": 60,
+    "pygame_ws_host": "127.0.0.1"
+  },
+  "phase6": {
+    "analytics_max_samples": 360,
+    "analytics_sample_interval": 1.0,
+    "congested_road_vehicle_threshold": 5,
+    "adaptive_traffic_lights": true,
+    "adaptive_green_bonus_per_vehicle": 0.35,
+    "adaptive_green_max_bonus": 8.0
+  },
+  "content": {
+    "golden_hour_min_avg_speed": 22.0,
+    "bus_dwell_seconds": 2.2
+  },
+  "auth": {
+    "session_secret": "cityflow-change-this-in-production",
+    "google_enabled": false,
+    "google_client_id": "",
+    "google_client_secret": ""
+  },
+  "engagement": {
+    "free_save_slots": 1,
+    "pro_save_slots": 5,
+    "daily_login_coins": 15,
+    "pro_daily_coin_multiplier": 2,
+    "daily_all_complete_coins": 100,
+    "daily_all_complete_xp": 50,
+    "level_up_coins": 25,
+    "xp_per_level_base": 100,
+    "pro_xp_bonus_multiplier": 1.25,
+    "active_player_seconds": 90,
+    "leaderboard_size": 10,
+    "vip_event_coin_cost": 60,
+    "allow_demo_pro_activation": true,
+    "demo_pro_days": 7,
+    "pro_required_for_csv_export": true
+  }
+}

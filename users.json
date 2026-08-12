@@ -1,0 +1,10 @@
+{
+  "users": {
+    "operator0714": {
+      "login_id": "operator0714",
+      "name": "operator",
+      "password": "scrypt:32768:8:1$ONVMQ5fxehHBmpMX$8fb3d8a320cf7d4dae69900b35e8b5ab55c1f7bda11d48173908590af5ea8cb5533377efb575914485751f37f2e53ad920d01b515b547555638a95444563e00f",
+      "auth_provider": "local"
+    }
+  }
+}

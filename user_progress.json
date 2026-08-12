@@ -1,0 +1,457 @@
+{
+  "profiles": {
+    "player1": {
+      "login_id": "player1",
+      "xp": 5,
+      "level": 1,
+      "coins": 135,
+      "streak_days": 1,
+      "last_login_date": "2026-08-01",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "2026-08-01",
+        "quests": [
+          {
+            "id": "build_roads",
+            "label": "도로 건설",
+            "description": "도로 3개 건설",
+            "target": 3,
+            "metric": "roads_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "spawn_fleet",
+            "label": "차량 배치",
+            "description": "차량 8대 배치",
+            "target": 8,
+            "metric": "vehicles_spawned",
+            "reward_coins": 35,
+            "reward_xp": 20,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "move_traffic",
+            "label": "교통 흐름",
+            "description": "완주 15회 달성",
+            "target": 15,
+            "metric": "trips_completed",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "playtime",
+            "label": "도시 운영",
+            "description": "5분 이상 플레이",
+            "target": 300,
+            "metric": "play_seconds",
+            "reward_coins": 30,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          }
+        ],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0
+      },
+      "weekly_xp": 5,
+      "week_id": "2026-W31",
+      "achievements": [],
+      "city_saves": {},
+      "leaderboard_score": 5
+    },
+    "pro_user": {
+      "login_id": "pro_user",
+      "xp": 5,
+      "level": 1,
+      "coins": 135,
+      "streak_days": 1,
+      "last_login_date": "2026-08-01",
+      "plan": "pro",
+      "pro_until": "2026-08-08T08:22:00.122607+00:00",
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "2026-08-01",
+        "quests": [
+          {
+            "id": "build_roads",
+            "label": "도로 건설",
+            "description": "도로 3개 건설",
+            "target": 3,
+            "metric": "roads_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "spawn_fleet",
+            "label": "차량 배치",
+            "description": "차량 8대 배치",
+            "target": 8,
+            "metric": "vehicles_spawned",
+            "reward_coins": 35,
+            "reward_xp": 20,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "move_traffic",
+            "label": "교통 흐름",
+            "description": "완주 15회 달성",
+            "target": 15,
+            "metric": "trips_completed",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "playtime",
+            "label": "도시 운영",
+            "description": "5분 이상 플레이",
+            "target": 300,
+            "metric": "play_seconds",
+            "reward_coins": 30,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          }
+        ],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0
+      },
+      "weekly_xp": 5,
+      "week_id": "2026-W31",
+      "achievements": [],
+      "city_saves": {},
+      "leaderboard_score": 5
+    },
+    "builder": {
+      "login_id": "builder",
+      "xp": 5,
+      "level": 1,
+      "coins": 155,
+      "streak_days": 1,
+      "last_login_date": "2026-08-01",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "2026-08-01",
+        "quests": [
+          {
+            "id": "build_roads",
+            "label": "도로 건설",
+            "description": "도로 3개 건설",
+            "target": 3,
+            "metric": "roads_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 3.0,
+            "completed": true,
+            "claimed": false
+          },
+          {
+            "id": "spawn_fleet",
+            "label": "차량 배치",
+            "description": "차량 8대 배치",
+            "target": 8,
+            "metric": "vehicles_spawned",
+            "reward_coins": 35,
+            "reward_xp": 20,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "move_traffic",
+            "label": "교통 흐름",
+            "description": "완주 15회 달성",
+            "target": 15,
+            "metric": "trips_completed",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "playtime",
+            "label": "도시 운영",
+            "description": "5분 이상 플레이",
+            "target": 300,
+            "metric": "play_seconds",
+            "reward_coins": 30,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          }
+        ],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 9.0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0
+      },
+      "weekly_xp": 5,
+      "week_id": "2026-W31",
+      "achievements": [
+        "first_road"
+      ],
+      "city_saves": {},
+      "leaderboard_score": 5
+    },
+    "shopper": {
+      "login_id": "shopper",
+      "xp": 5,
+      "level": 1,
+      "coins": 135,
+      "streak_days": 1,
+      "last_login_date": "2026-08-01",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "2026-08-01",
+        "quests": [
+          {
+            "id": "build_roads",
+            "label": "도로 건설",
+            "description": "도로 3개 건설",
+            "target": 3,
+            "metric": "roads_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "spawn_fleet",
+            "label": "차량 배치",
+            "description": "차량 8대 배치",
+            "target": 8,
+            "metric": "vehicles_spawned",
+            "reward_coins": 35,
+            "reward_xp": 20,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "move_traffic",
+            "label": "교통 흐름",
+            "description": "완주 15회 달성",
+            "target": 15,
+            "metric": "trips_completed",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "playtime",
+            "label": "도시 운영",
+            "description": "5분 이상 플레이",
+            "target": 300,
+            "metric": "play_seconds",
+            "reward_coins": 30,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          }
+        ],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0
+      },
+      "weekly_xp": 5,
+      "week_id": "2026-W31",
+      "achievements": [],
+      "city_saves": {},
+      "leaderboard_score": 5
+    },
+    "operator0714": {
+      "login_id": "operator0714",
+      "xp": 5,
+      "level": 1,
+      "coins": 155,
+      "streak_days": 1,
+      "last_login_date": "2026-08-11",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "2026-08-11",
+        "quests": [
+          {
+            "id": "build_roads",
+            "label": "도로 건설",
+            "description": "도로 3개 건설",
+            "target": 3,
+            "metric": "roads_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 2.0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "move_traffic",
+            "label": "교통 흐름",
+            "description": "완주 15회 달성",
+            "target": 15,
+            "metric": "trips_completed",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "golden_hour",
+            "label": "골든 아워",
+            "description": "원활한 흐름(평균속도↑) 40초 유지",
+            "target": 40,
+            "metric": "golden_flow_seconds",
+            "reward_coins": 55,
+            "reward_xp": 40,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "accident_cleanup",
+            "label": "사고 클린업",
+            "description": "교통사고 2건 정리(경찰/견인)",
+            "target": 2,
+            "metric": "accidents_cleared",
+            "reward_coins": 60,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "bus_stops",
+            "label": "버스 정류장",
+            "description": "정류장 2개 개설",
+            "target": 2,
+            "metric": "bus_stops_built",
+            "reward_coins": 45,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "cargo_sort",
+            "label": "화물 분류",
+            "description": "트럭 화물 3건 분류",
+            "target": 3,
+            "metric": "cargo_classified",
+            "reward_coins": 50,
+            "reward_xp": 30,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          }
+        ],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 4.0,
+        "vehicles_spawned": 5.0,
+        "trips_completed": 2.0,
+        "events_triggered": 0,
+        "play_seconds": 425.6340000000025
+      },
+      "weekly_xp": 5,
+      "week_id": "2026-W33",
+      "achievements": [
+        "first_road"
+      ],
+      "city_saves": {},
+      "leaderboard_score": 5
+    },
+    "operator": {
+      "login_id": "operator",
+      "xp": 0,
+      "level": 1,
+      "coins": 120,
+      "streak_days": 0,
+      "last_login_date": "",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "",
+        "quests": [],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0
+      },
+      "weekly_xp": 0,
+      "week_id": "2026-W31",
+      "achievements": [],
+      "city_saves": {},
+      "leaderboard_score": 0
+    }
+  }
+}
