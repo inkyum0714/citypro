@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityFlow — 결제 결과</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-page">
+    <div class="auth-card">
+        <h1>{{ '결제 완료' if ok else '결제 실패' }}</h1>
+        <p class="auth-sub">{{ message }}</p>
+        {% if player and player.is_pro %}
+        <p class="pro-price">{{ player.plan_label }} · {{ player.pro_until[:10] if player.pro_until else '' }}까지</p>
+        {% endif %}
+        <a class="btn btn-premium full-width" href="/">시뮬레이션으로 돌아가기</a>
+    </div>
+</body>
+</html>

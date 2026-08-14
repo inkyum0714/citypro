@@ -110,19 +110,85 @@ def shop_items() -> list[dict[str, Any]]:
     ]
 
 
+PLAN_RANK = {"free": 0, "pro": 1, "pro_plus": 2, "ultra": 3}
+PAID_PLANS = ("pro", "pro_plus", "ultra")
+
+
+def _usd_to_krw(usd: int) -> int:
+    rate = int(get_variable("billing", "usd_to_krw", 1400))
+    return max(100, int(usd) * rate)
+
+
+def pro_plans() -> list[dict[str, Any]]:
+    """유료 요금제. 표시는 달러, 토스 결제는 KRW."""
+    configured = get_variable("billing", "plans", None)
+    defaults = [
+        {
+            "id": "pro",
+            "name": "PRO",
+            "price_usd": 1,
+            "days": 30,
+            "save_slots": 5,
+            "xp_multiplier": 1.25,
+            "daily_coin_multiplier": 2,
+            "benefits": [
+                "광고 제거",
+                "도시 저장 5슬롯",
+                "VIP 이벤트 · CSV 내보내기",
+                "일일 코인 2배 · XP 1.25배",
+            ],
+        },
+        {
+            "id": "pro_plus",
+            "name": "PRO+",
+            "price_usd": 2,
+            "days": 30,
+            "save_slots": 10,
+            "xp_multiplier": 1.5,
+            "daily_coin_multiplier": 2,
+            "benefits": [
+                "PRO 모든 혜택",
+                "도시 저장 10슬롯",
+                "XP 1.5배",
+            ],
+        },
+        {
+            "id": "ultra",
+            "name": "ULTRA",
+            "price_usd": 5,
+            "days": 30,
+            "save_slots": 20,
+            "xp_multiplier": 2.0,
+            "daily_coin_multiplier": 3,
+            "benefits": [
+                "PRO+ 모든 혜택",
+                "도시 저장 20슬롯",
+                "일일 코인 3배 · XP 2배",
+            ],
+        },
+    ]
+    overrides = configured if isinstance(configured, dict) else {}
+    plans: list[dict[str, Any]] = []
+    for base in defaults:
+        extra = overrides.get(base["id"]) if isinstance(overrides.get(base["id"]), dict) else {}
+        plan = {**base, **extra}
+        usd = int(plan.get("price_usd", 1))
+        krw = int(plan.get("price_krw") or _usd_to_krw(usd))
+        plan["price_usd"] = usd
+        plan["price_krw"] = krw
+        plan["price_display"] = f"${usd}/월"
+        plan["price_krw_display"] = f"₩{krw:,}"
+        plans.append(plan)
+    return plans
+
+
+def get_plan(plan_id: str) -> dict[str, Any] | None:
+    return next((p for p in pro_plans() if p["id"] == plan_id), None)
+
+
 def pro_plan_catalog() -> dict[str, Any]:
-    return {
-        "id": "cityflow_pro",
-        "name": "CityFlow PRO",
-        "price_display": "₩4,900/월",
-        "benefits": [
-            "광고 제거",
-            "도시 저장 5슬롯",
-            "VIP 이벤트·고급 분석",
-            "일일 보너스 코인 2배",
-            "주간 리더보드 PRO 배지",
-        ],
-    }
+    """하위 호환: 기본 PRO 플랜."""
+    return get_plan("pro") or pro_plans()[0]
 
 
 def achievements_catalog() -> list[dict[str, Any]]:

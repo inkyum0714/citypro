@@ -56,7 +56,7 @@ window.engagementPanel = {
         }
         if (proBadge) {
             proBadge.hidden = !player.is_pro;
-            proBadge.textContent = player.is_pro ? 'PRO' : '';
+            proBadge.textContent = player.plan_label || (player.is_pro ? 'PRO' : '');
         }
 
         const adSlot = document.getElementById('adSlot');
@@ -323,6 +323,34 @@ window.engagementPanel = {
         });
     },
 
+    renderPlans(player) {
+        const grid = document.getElementById('planGrid');
+        if (!grid) return;
+        const plans = player.plans || [];
+        const billingOn = Boolean(player.billing_enabled);
+        const current = player.plan || 'free';
+        grid.innerHTML = plans.map((plan) => {
+            const currentMark = current === plan.id ? '<span class="plan-current">이용 중</span>' : '';
+            const benefits = (plan.benefits || []).map((b) => `<li>${b}</li>`).join('');
+            const payLabel = billingOn ? `${plan.price_display} 결제` : '결제 설정 필요';
+            return `
+            <div class="plan-card${current === plan.id ? ' current' : ''}">
+                <h4>${plan.name} ${currentMark}</h4>
+                <p class="pro-price">${plan.price_display} <span>${plan.price_krw_display} · 토스 결제</span></p>
+                <ul class="pro-benefits">${benefits}</ul>
+                <button type="button" class="btn btn-premium full-width plan-pay-btn" data-plan-id="${plan.id}"
+                    ${billingOn ? '' : 'disabled'}>
+                    ${payLabel}
+                </button>
+            </div>`;
+        }).join('');
+        grid.querySelectorAll('.plan-pay-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                window.location.href = `/pro/checkout?plan=${encodeURIComponent(btn.dataset.planId)}`;
+            });
+        });
+    },
+
     bind() {
         const questList = document.getElementById('dailyQuestList');
         if (questList && !this._questsBound) {
@@ -350,17 +378,26 @@ window.engagementPanel = {
         });
         document.getElementById('closeShopBtn')?.addEventListener('click', () => closeModal('shopModal'));
 
-        document.getElementById('openProBtn')?.addEventListener('click', () => openModal('proModal'));
-        document.getElementById('openProBtnAd')?.addEventListener('click', () => openModal('proModal'));
+        document.getElementById('openProBtn')?.addEventListener('click', () => {
+            if (this.player) this.renderPlans(this.player);
+            openModal('proModal');
+        });
+        document.getElementById('openProBtnAd')?.addEventListener('click', () => {
+            if (this.player) this.renderPlans(this.player);
+            openModal('proModal');
+        });
         document.getElementById('closeProBtn')?.addEventListener('click', () => closeModal('proModal'));
-        document.getElementById('activateProDemoBtn')?.addEventListener('click', async () => {
-            const data = await apiPost('/api/engagement/pro/activate-demo');
+        document.getElementById('redeemCouponBtn')?.addEventListener('click', async () => {
+            const input = document.getElementById('couponCodeInput');
+            const code = (input?.value || '').trim();
+            const data = await apiPost('/api/engagement/coupon/redeem', { code });
             window.uiBridge?.showToast(data.message, data.ok ? 'info' : 'warning');
             if (data.player) {
                 this._savesMeta = null;
                 this.applyPlayer(data.player);
+                this.renderPlans(data.player);
             }
-            closeModal('proModal');
+            if (data.ok) closeModal('proModal');
         });
 
         document.querySelectorAll('.modal').forEach((modal) => {

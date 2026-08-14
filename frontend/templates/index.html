@@ -259,20 +259,20 @@
     </div>
 
     <div class="modal" id="proModal">
-        <div class="modal-card">
+        <div class="modal-card modal-card-wide">
             <header class="modal-head">
-                <h2>CityFlow PRO</h2>
+                <h2>CityFlow 멤버십</h2>
                 <button type="button" class="modal-close" id="closeProBtn">×</button>
             </header>
-            <ul class="pro-benefits">
-                <li>광고 제거 · 도시 저장 5슬롯</li>
-                <li>VIP 이벤트 · CSV 분석 내보내기</li>
-                <li>일일 보상 2배 · 주간 랭킹 PRO 배지</li>
-            </ul>
-            <p class="pro-price">₩4,900/월 <span>(결제 연동 전: 아래 체험)</span></p>
-            <button class="btn btn-premium full-width" id="activateProDemoBtn" type="button">
-                PRO 7일 무료 체험 시작
-            </button>
+            <div class="plan-grid" id="planGrid"></div>
+            <div class="coupon-box">
+                <label for="couponCodeInput">레딧 무료체험 쿠폰 (영문·숫자 8자리)</label>
+                <div class="coupon-row">
+                    <input id="couponCodeInput" type="text" maxlength="8" placeholder="RDT1WEEK" autocomplete="off">
+                    <button class="btn btn-secondary" id="redeemCouponBtn" type="button">적용</button>
+                </div>
+                <p class="panel-desc">계정당 1회, 선착순 10명, PRO 7일 체험. 코드 예: RDT1WEEK</p>
+            </div>
         </div>
     </div>
 

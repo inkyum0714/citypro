@@ -5,5 +5,7 @@ __pycache__/
 venv/
 .env
 *.json.tmp
+coupons.json
+orders.json
 .pytest_cache/
 .mypy_cache/

@@ -429,6 +429,81 @@ body {
     border: 1px solid #334155;
 }
 
+.modal-card-wide {
+    width: min(860px, 100%);
+}
+
+.plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.plan-card {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.plan-card.current {
+    border-color: #38bdf8;
+}
+
+.plan-card h4 {
+    margin: 0 0 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plan-current {
+    font-size: 0.7rem;
+    color: #7dd3fc;
+}
+
+.coupon-box {
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid #334155;
+}
+
+.coupon-box label {
+    display: block;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+
+.coupon-row {
+    display: flex;
+    gap: 8px;
+}
+
+.coupon-row input {
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: inherit;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+.checkout-card {
+    width: min(520px, 100%);
+}
+
+.auth-error {
+    color: #fca5a5;
+    background: rgba(127, 29, 29, 0.35);
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+
 .modal-head {
     display: flex;
     justify-content: space-between;

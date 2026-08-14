@@ -22,6 +22,17 @@ Health Check Path
   GOOGLE_ENABLED             true
   GOOGLE_CLIENT_ID           Google OAuth 클라이언트 ID
   GOOGLE_CLIENT_SECRET       Google OAuth 클라이언트 시크릿
+  TOSS_CLIENT_KEY            토스페이먼츠 클라이언트 키 (위젯)
+  TOSS_SECRET_KEY            토스페이먼츠 시크릿 키 (서버 승인, 절대 프론트에 넣지 말 것)
+  REDDIT_COUPON_CODE         레딧 체험 쿠폰 8자리 (기본 RDT1WEEK, 선착순 10명)
+
+토스 정산(계좌 등록은 직접)
+  1. https://www.tosspayments.com 에서 상점 가입
+  2. 개발자센터에서 테스트/라이브 API 키 발급
+  3. 상점관리자 > 정산 계좌에 토스뱅크(또는 원하는 계좌) 등록
+  4. 위 키를 Render Environment에 넣고 재배포
+  5. 결제 금액은 토스페이먼츠 수수료 차감 후 정산일에 등록 계좌로 입금됨
+  개인 토스 송금 QR이 아니라 토스페이먼츠 정산입니다.
 
 참고
   - workers는 반드시 1 (시뮬레이션 상태가 프로세스 메모리에 있음)

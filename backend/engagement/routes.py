@@ -84,6 +84,15 @@ def pro_demo() -> Response:
     return jsonify({"ok": ok, "message": message, "player": player})
 
 
+@engagement_bp.route("/api/engagement/coupon/redeem", methods=["POST"])
+@login_required
+def redeem_coupon() -> Response:
+    payload = request.get_json(silent=True) or {}
+    code = str(payload.get("code", ""))
+    ok, message, player = _svc().redeem_coupon(_login_id(), code)
+    return jsonify({"ok": ok, "message": message, "player": player})
+
+
 @engagement_bp.route("/api/engagement/cosmetic", methods=["POST"])
 @login_required
 def set_cosmetic() -> Response:

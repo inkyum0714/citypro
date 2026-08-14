@@ -8,11 +8,15 @@ from typing import Any
 from engagement.catalog import (
     achievements_catalog,
     daily_quest_templates,
+    get_plan,
+    PAID_PLANS,
+    PLAN_RANK,
     pro_plan_catalog,
+    pro_plans,
     shop_items,
     xp_for_level,
 )
-from engagement import profile_store
+from engagement import coupon_store, profile_store
 from engagement.stages import get_stage, stage_catalog, stage_public
 from utils.variables import get_variable
 
@@ -49,28 +53,37 @@ class EngagementService:
         active_window = float(get_variable("engagement", "active_player_seconds", 90.0))
         return {uid for uid, ts in self._active_users.items() if now - ts <= active_window}
 
+    def _plan_id(self, profile: dict[str, Any]) -> str:
+        plan = str(profile.get("plan") or "free")
+        if plan not in PAID_PLANS:
+            return "free"
+        until = profile.get("pro_until")
+        if until is None:
+            return plan
+        try:
+            end = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
+            if end > datetime.now(timezone.utc):
+                return plan
+        except ValueError:
+            return plan
+        return "free"
+
     def is_pro(self, profile: dict[str, Any]) -> bool:
-        if profile.get("plan") == "pro":
-            until = profile.get("pro_until")
-            if until is None:
-                return True
-            try:
-                end = datetime.fromisoformat(str(until).replace("Z", "+00:00"))
-                return end > datetime.now(timezone.utc)
-            except ValueError:
-                return True
-        return False
+        return self._plan_id(profile) in PAID_PLANS
 
     def max_save_slots(self, profile: dict[str, Any]) -> int:
-        base = int(get_variable("engagement", "free_save_slots", 1))
-        pro_slots = int(get_variable("engagement", "pro_save_slots", 5))
         extra = int(profile.get("extra_save_slots", 0))
-        cap = pro_slots if self.is_pro(profile) else base
-        return cap + extra
+        plan = get_plan(self._plan_id(profile))
+        if plan:
+            return int(plan.get("save_slots", 5)) + extra
+        return int(get_variable("engagement", "free_save_slots", 1)) + extra
 
     def xp_multiplier(self, profile: dict[str, Any]) -> float:
         mult = 1.0
-        if self.is_pro(profile):
+        plan = get_plan(self._plan_id(profile))
+        if plan:
+            mult *= float(plan.get("xp_multiplier", 1.25))
+        elif self.is_pro(profile):
             mult *= float(get_variable("engagement", "pro_xp_bonus_multiplier", 1.25))
         boosters = profile.get("boosters") or {}
         xp_booster = boosters.get("xp_multiplier")
@@ -82,6 +95,14 @@ class EngagementService:
             except (KeyError, ValueError, TypeError):
                 pass
         return mult
+
+    def _daily_coin_multiplier(self, profile: dict[str, Any]) -> int:
+        plan = get_plan(self._plan_id(profile))
+        if plan:
+            return int(plan.get("daily_coin_multiplier", 2))
+        if self.is_pro(profile):
+            return int(get_variable("engagement", "pro_daily_coin_multiplier", 2))
+        return 1
 
     def on_login(self, login_id: str) -> dict[str, Any]:
         login_id = login_id.strip().lower()
@@ -104,8 +125,7 @@ class EngagementService:
             if first_login_today:
                 p["last_login_date"] = today
                 bonus = int(get_variable("engagement", "daily_login_coins", 15))
-                if self.is_pro(p):
-                    bonus *= int(get_variable("engagement", "pro_daily_coin_multiplier", 2))
+                bonus *= self._daily_coin_multiplier(p)
                 p["coins"] = int(p.get("coins", 0)) + bonus
                 streak_xp = min(streak, 14) * 5
                 self._add_xp(p, streak_xp, apply_multipliers=False)
@@ -411,8 +431,7 @@ class EngagementService:
                 raise ValueError("already_claimed")
             p["daily"]["all_complete_bonus_claimed"] = True
             bonus = int(get_variable("engagement", "daily_all_complete_coins", 100))
-            if self.is_pro(p):
-                bonus *= int(get_variable("engagement", "pro_daily_coin_multiplier", 2))
+            bonus *= self._daily_coin_multiplier(p)
             p["coins"] = int(p.get("coins", 0)) + bonus
             self._add_xp(p, int(get_variable("engagement", "daily_all_complete_xp", 50)))
 
@@ -470,19 +489,66 @@ class EngagementService:
             return False, messages.get(code, "구매 실패"), self.get_public(login_id)
         return True, f"{item['name']} 구매 완료!", self.to_public(profile)
 
+    def grant_plan(
+        self,
+        login_id: str,
+        plan_id: str,
+        *,
+        days: int,
+        source: str,
+    ) -> tuple[bool, str, dict[str, Any]]:
+        """유료/쿠폰 플랜 부여. 상위 플랜은 유지하고 기간만 연장합니다."""
+        login_id = login_id.strip().lower()
+        spec = get_plan(plan_id)
+        if spec is None:
+            return False, "알 수 없는 요금제입니다.", self.get_public(login_id)
+        days = max(1, int(days))
+
+        def mutate(p: dict[str, Any]) -> None:
+            now = datetime.now(timezone.utc)
+            current = self._plan_id(p)
+            until = None
+            raw_until = p.get("pro_until")
+            if raw_until:
+                try:
+                    until = datetime.fromisoformat(str(raw_until).replace("Z", "+00:00"))
+                except ValueError:
+                    until = None
+            current_rank = PLAN_RANK.get(current, 0)
+            new_rank = PLAN_RANK.get(plan_id, 0)
+            if current_rank > new_rank and until and until > now:
+                p["pro_until"] = (until + timedelta(days=days)).isoformat()
+                p["plan_source"] = source
+                return
+            start = until if (until and until > now and current_rank == new_rank) else now
+            if current_rank == new_rank and until and until > now:
+                start = until
+            p["plan"] = plan_id
+            p["pro_until"] = (start + timedelta(days=days)).isoformat()
+            p["plan_source"] = source
+
+        profile = profile_store.update_profile(login_id, mutate)
+        label = spec.get("name", plan_id.upper())
+        return True, f"{label} {days}일이 적용되었습니다.", self.to_public(profile)
+
+    def redeem_coupon(self, login_id: str, code: str) -> tuple[bool, str, dict[str, Any]]:
+        login_id = login_id.strip().lower()
+        ok, message, coupon = coupon_store.redeem(code, login_id)
+        if not ok or coupon is None:
+            return False, message, self.get_public(login_id)
+        plan_id = str(coupon.get("plan") or "pro")
+        days = int(coupon.get("days") or 7)
+        granted, grant_msg, player = self.grant_plan(login_id, plan_id, days=days, source="coupon")
+        if not granted:
+            return False, grant_msg, player
+        return True, f"쿠폰 적용! PRO {days}일 체험이 시작되었습니다.", player
+
     def activate_pro_demo(self, login_id: str) -> tuple[bool, str, dict[str, Any]]:
-        """데모/베타용 PRO 체험 (실결제 연동 전)."""
+        """로컬/테스트용 PRO 체험."""
         if not bool(get_variable("engagement", "allow_demo_pro_activation", True)):
             return False, "PRO 체험을 사용할 수 없습니다.", self.get_public(login_id)
         days = int(get_variable("engagement", "demo_pro_days", 7))
-        login_id = login_id.strip().lower()
-
-        def mutate(p: dict[str, Any]) -> None:
-            p["plan"] = "pro"
-            p["pro_until"] = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
-
-        profile = profile_store.update_profile(login_id, mutate)
-        return True, f"PRO {days}일 체험이 시작되었습니다.", self.to_public(profile)
+        return self.grant_plan(login_id, "pro", days=days, source="demo")
 
     def set_cosmetic(self, login_id: str, cosmetic_id: str) -> dict[str, Any]:
         login_id = login_id.strip().lower()
@@ -579,6 +645,14 @@ class EngagementService:
     def to_public(self, profile: dict[str, Any]) -> dict[str, Any]:
         self._ensure_daily(profile)
         pro = self.is_pro(profile)
+        plan_id = self._plan_id(profile)
+        plan = get_plan(plan_id)
+        billing_on = False
+        try:
+            from billing.toss import toss_configured
+            billing_on = toss_configured()
+        except Exception:
+            billing_on = False
         return {
             "login_id": profile.get("login_id"),
             "xp": profile.get("xp", 0),
@@ -586,8 +660,9 @@ class EngagementService:
             "xp_to_next": xp_for_level(int(profile.get("level", 1))),
             "coins": profile.get("coins", 0),
             "streak_days": profile.get("streak_days", 0),
-            "plan": "pro" if pro else "free",
-            "pro_until": profile.get("pro_until"),
+            "plan": plan_id,
+            "plan_label": plan["name"] if plan else "FREE",
+            "pro_until": profile.get("pro_until") if pro else None,
             "is_pro": pro,
             "active_cosmetic": profile.get("active_cosmetic", "default"),
             "owned_items": profile.get("owned_items", []),
@@ -599,6 +674,8 @@ class EngagementService:
             "save_slots": self.max_save_slots(profile),
             "shop": shop_items(),
             "pro_plan": pro_plan_catalog(),
+            "plans": pro_plans(),
+            "billing_enabled": billing_on,
             "achievement_catalog": achievements_catalog(),
             "show_ads": not pro,
             "stages_completed": profile.get("stages_completed") or [],

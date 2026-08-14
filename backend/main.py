@@ -15,6 +15,7 @@ from auth.routes import auth_bp, init_oauth, login_required
 from engagement.hooks import bind_engagement
 from engagement.routes import engagement_bp, init_engagement_routes
 from engagement.service import EngagementService
+from billing.routes import billing_bp, init_billing_routes
 from engine.sim_registry import SimulationRegistry
 from engine.traffic_manager import TrafficManager
 from utils.variables import env_bool, env_str, get_variable, is_render
@@ -304,8 +305,10 @@ def create_app() -> Flask:
     init_oauth(app)
     bind_engagement(engagement)
     init_engagement_routes(engagement, sim_registry)
+    init_billing_routes(engagement)
     app.register_blueprint(auth_bp)
     app.register_blueprint(engagement_bp)
+    app.register_blueprint(billing_bp)
     sock = Sock(app)
     @app.route("/health")
     def health() -> Response:

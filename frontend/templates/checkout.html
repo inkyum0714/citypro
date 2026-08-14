@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityFlow — 결제</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://js.tosspayments.com/v2/standard"></script>
+</head>
+<body class="auth-page">
+    <div class="auth-card checkout-card">
+        <h1>CityFlow 결제</h1>
+        {% if error %}
+        <p class="auth-error">{{ error }}</p>
+        <p><a class="btn btn-ghost full-width" href="/">돌아가기</a></p>
+        {% else %}
+        <p class="auth-sub">{{ order.order_name }} · {{ user_name }}</p>
+        <p class="pro-price">${{ order.price_usd }}/월 <span>₩{{ "{:,}".format(order.amount) }} 결제</span></p>
+        <div id="payment-method"></div>
+        <div id="agreement"></div>
+        <button type="button" class="btn btn-premium full-width" id="paymentButton">토스로 결제하기</button>
+        <p class="panel-desc">결제 완료 후 등록하신 토스페이먼츠 정산 계좌로 입금됩니다.</p>
+        <p><a href="/">취소하고 돌아가기</a></p>
+        {% endif %}
+    </div>
+    {% if not error and order %}
+    <script>
+    (async () => {
+        const tossPayments = TossPayments({{ client_key|tojson }});
+        const widgets = tossPayments.widgets({ customerKey: {{ customer_key|tojson }} });
+        await widgets.setAmount({ currency: 'KRW', value: {{ order.amount }} });
+        await Promise.all([
+            widgets.renderPaymentMethods({ selector: '#payment-method', variantKey: 'DEFAULT' }),
+            widgets.renderAgreement({ selector: '#agreement', variantKey: 'AGREEMENT' }),
+        ]);
+        document.getElementById('paymentButton').addEventListener('click', async () => {
+            try {
+                await widgets.requestPayment({
+                    orderId: {{ order.order_id|tojson }},
+                    orderName: {{ order.order_name|tojson }},
+                    successUrl: `${window.location.origin}/pro/success`,
+                    failUrl: `${window.location.origin}/pro/fail`,
+                });
+            } catch (err) {
+                alert(err?.message || '결제창을 열 수 없습니다.');
+            }
+        });
+    })();
+    </script>
+    {% endif %}
+</body>
+</html>

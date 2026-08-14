@@ -66,5 +66,64 @@ class EngagementTests(unittest.TestCase):
         self.assertEqual(self.svc.get_public("vipbuyer")["coins"], 40)
 
 
+class CouponAndPlanTests(unittest.TestCase):
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        tmp = Path(self._tmpdir.name)
+        profile_store.PROGRESS_PATH = tmp / "user_progress.json"
+        import engagement.coupon_store as coupon_store
+        coupon_store.COUPONS_PATH = tmp / "coupons.json"
+        self.coupon_store = coupon_store
+        self.svc = EngagementService()
+        self.svc.on_login("couponuser")
+
+    def tearDown(self):
+        self._tmpdir.cleanup()
+
+    def test_plan_prices(self):
+        from engagement.catalog import pro_plans
+        plans = {p["id"]: p for p in pro_plans()}
+        self.assertEqual(plans["pro"]["price_usd"], 1)
+        self.assertEqual(plans["pro_plus"]["price_usd"], 2)
+        self.assertEqual(plans["ultra"]["price_usd"], 5)
+        self.assertEqual(plans["pro"]["price_krw"], 1400)
+        self.assertEqual(plans["pro_plus"]["price_krw"], 2800)
+        self.assertEqual(plans["ultra"]["price_krw"], 7000)
+
+    def test_coupon_grants_week_of_pro(self):
+        ok, _, player = self.svc.redeem_coupon("couponuser", "RDT1WEEK")
+        self.assertTrue(ok)
+        self.assertTrue(player["is_pro"])
+        self.assertEqual(player["plan"], "pro")
+
+    def test_coupon_rejects_second_use(self):
+        self.svc.redeem_coupon("couponuser", "rdt1week")
+        ok, message, _ = self.svc.redeem_coupon("couponuser", "RDT1WEEK")
+        self.assertFalse(ok)
+        self.assertIn("이미", message)
+
+    def test_coupon_rejects_bad_format(self):
+        ok, message, _ = self.svc.redeem_coupon("couponuser", "NO")
+        self.assertFalse(ok)
+        self.assertIn("8", message)
+
+    def test_paid_ultra_not_downgraded_by_coupon(self):
+        self.svc.grant_plan("couponuser", "ultra", days=30, source="toss")
+        ok, _, player = self.svc.redeem_coupon("couponuser", "RDT1WEEK")
+        self.assertTrue(ok)
+        self.assertEqual(player["plan"], "ultra")
+
+    def test_coupon_stops_at_ten(self):
+        for i in range(10):
+            uid = f"cuser{i:02d}"
+            self.svc.on_login(uid)
+            ok, message, _ = self.svc.redeem_coupon(uid, "RDT1WEEK")
+            self.assertTrue(ok, message)
+        self.svc.on_login("cuser10")
+        ok, message, _ = self.svc.redeem_coupon("cuser10", "RDT1WEEK")
+        self.assertFalse(ok)
+        self.assertIn("한도", message)
+
+
 if __name__ == "__main__":
     unittest.main()
