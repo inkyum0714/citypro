@@ -97,29 +97,29 @@ def redeem(code: str, login_id: str) -> tuple[bool, str, dict[str, Any] | None]:
     쿠폰 1회 사용 기록.
 
     Returns:
-        (성공, 메시지, 쿠폰 dict)
+        (성공, 메시지 키, 쿠폰 dict)
     """
     code = normalize_code(code)
     login_id = login_id.strip().lower()
     if not is_valid_code_format(code):
-        return False, "쿠폰은 숫자·영문 8자리여야 합니다.", None
+        return False, "coupon.invalid_format", None
     if not login_id:
-        return False, "로그인이 필요합니다.", None
+        return False, "coupon.login_required", None
 
     with _lock:
         data = _load()
         coupons = data.setdefault("coupons", {})
         coupon = coupons.get(code)
         if not isinstance(coupon, dict):
-            return False, "유효하지 않은 쿠폰입니다.", None
+            return False, "coupon.invalid", None
         used = [str(u).lower() for u in coupon.get("redeemed_by") or []]
         if login_id in used:
-            return False, "이미 사용한 쿠폰입니다.", None
+            return False, "coupon.already_used", None
         limit = int(coupon.get("max_redemptions", 0) or 0)
         if limit > 0 and len(used) >= limit:
-            return False, "쿠폰 사용 한도에 도달했습니다.", None
+            return False, "coupon.expired", None
         used.append(login_id)
         coupon["redeemed_by"] = used
         coupons[code] = coupon
         _save(data)
-        return True, "쿠폰이 적용되었습니다.", deepcopy(coupon)
+        return True, "coupon.applied", deepcopy(coupon)

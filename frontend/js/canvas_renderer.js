@@ -87,10 +87,10 @@ window.canvasRenderer = {
         if (!gh?.active) return;
         ctx.save();
         ctx.fillStyle = 'rgba(251, 191, 36, 0.92)';
-        ctx.fillRect(12, 12, 210, 28);
+        ctx.fillRect(12, 12, 280, 28);
         ctx.fillStyle = '#422006';
         ctx.font = '600 12px Inter, sans-serif';
-        ctx.fillText(`골든 아워 ${Math.floor(gh.streak_seconds)}s · 평균 ${gh.avg_speed}`, 20, 30);
+        ctx.fillText(window.t('canvas.golden', { s: Math.floor(gh.streak_seconds), avg: gh.avg_speed }), 20, 30);
         ctx.restore();
     },
 
@@ -123,7 +123,7 @@ window.canvasRenderer = {
         ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
         ctx.lineWidth = 1;
-        const label = `줌 ${Math.round(camera.zoom * 100)}% · 휠 확대/축소 · 우클릭/관찰 모드 드래그 이동`;
+        const label = window.t('canvas.hud', { zoom: Math.round(camera.zoom * 100) });
         ctx.font = '12px Inter, sans-serif';
         const pad = 10;
         const w = ctx.measureText(label).width + pad * 2;

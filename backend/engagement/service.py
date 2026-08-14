@@ -18,6 +18,7 @@ from engagement.catalog import (
 )
 from engagement import coupon_store, profile_store
 from engagement.stages import get_stage, stage_catalog, stage_public
+from utils.i18n import t
 from utils.variables import get_variable
 
 
@@ -67,6 +68,25 @@ class EngagementService:
         except ValueError:
             return plan
         return "free"
+
+    def _until_dt(self, profile: dict[str, Any]) -> datetime | None:
+        raw = profile.get("pro_until")
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    def _trial_expired(self, profile: dict[str, Any]) -> bool:
+        if self.is_pro(profile):
+            return False
+        if str(profile.get("plan_source") or "") != "coupon":
+            return False
+        end = self._until_dt(profile)
+        if end is None:
+            return False
+        return end <= datetime.now(timezone.utc)
 
     def is_pro(self, profile: dict[str, Any]) -> bool:
         return self._plan_id(profile) in PAID_PLANS
@@ -275,13 +295,14 @@ class EngagementService:
     def start_stage(self, login_id: str, stage_id: str) -> tuple[bool, str, dict[str, Any]]:
         stage = get_stage(stage_id)
         if stage is None:
-            return False, "스테이지를 찾을 수 없습니다.", self.get_public(login_id)
+            return False, t("stage.not_found"), self.get_public(login_id)
 
         def mutate(p: dict[str, Any]) -> None:
             p["active_stage_id"] = stage_id
 
         profile = profile_store.update_profile(login_id, mutate)
-        return True, f"{stage['name']} 시작!", self.to_public(profile)
+        name = t(f"stage.{stage_id}.name", default=str(stage.get("name") or stage_id))
+        return True, t("stage.started", name=name), self.to_public(profile)
 
     def sync_stage_progress(
         self, login_id: str, stage_id: str | None, progress: dict[str, float]
@@ -299,10 +320,10 @@ class EngagementService:
     def claim_stage(self, login_id: str, stage_id: str, progress: dict[str, float]) -> tuple[bool, str, dict[str, Any]]:
         stage = get_stage(stage_id)
         if stage is None:
-            return False, "스테이지를 찾을 수 없습니다.", self.get_public(login_id)
+            return False, t("stage.not_found"), self.get_public(login_id)
         pub = stage_public(stage, progress=progress)
         if not pub.get("all_goals_met"):
-            return False, "아직 목표를 모두 달성하지 않았습니다.", self.get_public(login_id)
+            return False, t("stage.goals_unmet"), self.get_public(login_id)
 
         def mutate(p: dict[str, Any]) -> None:
             completed = set(p.get("stages_completed") or [])
@@ -319,8 +340,9 @@ class EngagementService:
         try:
             profile = profile_store.update_profile(login_id, mutate)
         except ValueError:
-            return False, "이미 클리어한 스테이지입니다.", self.get_public(login_id)
-        return True, f"{stage['name']} 클리어! 보상 지급", self.to_public(profile)
+            return False, t("stage.already_cleared"), self.get_public(login_id)
+        name = t(f"stage.{stage_id}.name", default=str(stage.get("name") or stage_id))
+        return True, t("stage.cleared", name=name), self.to_public(profile)
 
     def on_trips_completed(self, count: int, sim_time: float = 0.0) -> None:
         """하위 호환: 활성 유저에게 균등 분배(레거시 공유 시뮬용)."""
@@ -412,12 +434,12 @@ class EngagementService:
         except ValueError as exc:
             code = str(exc)
             messages = {
-                "unknown_quest": "퀘스트를 찾을 수 없습니다.",
-                "not_complete": "아직 완료되지 않았습니다.",
-                "already_claimed": "이미 보상을 받았습니다.",
+                "unknown_quest": t("quest.unknown"),
+                "not_complete": t("quest.not_complete"),
+                "already_claimed": t("quest.already_claimed"),
             }
-            return False, messages.get(code, "실패"), self.get_public(login_id)
-        return True, "보상을 받았습니다!", self.to_public(profile)
+            return False, messages.get(code, t("quest.fail")), self.get_public(login_id)
+        return True, t("quest.claimed"), self.to_public(profile)
 
     def claim_daily_bonus(self, login_id: str) -> tuple[bool, str, dict[str, Any]]:
         login_id = login_id.strip().lower()
@@ -440,17 +462,17 @@ class EngagementService:
         except ValueError as exc:
             code = str(exc)
             messages = {
-                "not_all_complete": "모든 일일 퀘스트를 완료하세요.",
-                "already_claimed": "오늘 보너스는 이미 받았습니다.",
+                "not_all_complete": t("daily.not_all_complete"),
+                "already_claimed": t("daily.already_claimed"),
             }
-            return False, messages.get(code, "실패"), self.get_public(login_id)
-        return True, "일일 완료 보너스!", self.to_public(profile)
+            return False, messages.get(code, t("quest.fail")), self.get_public(login_id)
+        return True, t("daily.bonus"), self.to_public(profile)
 
     def purchase_shop(self, login_id: str, item_id: str) -> tuple[bool, str, dict[str, Any]]:
         login_id = login_id.strip().lower()
         item = next((i for i in shop_items() if i["id"] == item_id), None)
         if item is None:
-            return False, "상품을 찾을 수 없습니다.", self.get_public(login_id)
+            return False, t("shop.not_found"), self.get_public(login_id)
 
         def mutate(p: dict[str, Any]) -> None:
             owned = set(p.get("owned_items") or [])
@@ -483,11 +505,12 @@ class EngagementService:
         except ValueError as exc:
             code = str(exc)
             messages = {
-                "already_owned": "이미 보유한 스킨입니다.",
-                "insufficient_coins": "코인이 부족합니다.",
+                "already_owned": t("shop.already_owned"),
+                "insufficient_coins": t("shop.insufficient"),
             }
-            return False, messages.get(code, "구매 실패"), self.get_public(login_id)
-        return True, f"{item['name']} 구매 완료!", self.to_public(profile)
+            return False, messages.get(code, t("shop.buy_failed")), self.get_public(login_id)
+        name = t(f"shop.{item['id']}.name", default=str(item.get("name") or item["id"]))
+        return True, t("shop.purchased", name=name), self.to_public(profile)
 
     def grant_plan(
         self,
@@ -501,7 +524,7 @@ class EngagementService:
         login_id = login_id.strip().lower()
         spec = get_plan(plan_id)
         if spec is None:
-            return False, "알 수 없는 요금제입니다.", self.get_public(login_id)
+            return False, t("plan.unknown"), self.get_public(login_id)
         days = max(1, int(days))
 
         def mutate(p: dict[str, Any]) -> None:
@@ -529,24 +552,24 @@ class EngagementService:
 
         profile = profile_store.update_profile(login_id, mutate)
         label = spec.get("name", plan_id.upper())
-        return True, f"{label} {days}일이 적용되었습니다.", self.to_public(profile)
+        return True, t("plan.applied", label=label, days=days), self.to_public(profile)
 
     def redeem_coupon(self, login_id: str, code: str) -> tuple[bool, str, dict[str, Any]]:
         login_id = login_id.strip().lower()
-        ok, message, coupon = coupon_store.redeem(code, login_id)
+        ok, key, coupon = coupon_store.redeem(code, login_id)
         if not ok or coupon is None:
-            return False, message, self.get_public(login_id)
+            return False, t(key), self.get_public(login_id)
         plan_id = str(coupon.get("plan") or "pro")
         days = int(coupon.get("days") or 7)
         granted, grant_msg, player = self.grant_plan(login_id, plan_id, days=days, source="coupon")
         if not granted:
             return False, grant_msg, player
-        return True, f"쿠폰 적용! PRO {days}일 체험이 시작되었습니다.", player
+        return True, t("coupon.trial_started", days=days), player
 
     def activate_pro_demo(self, login_id: str) -> tuple[bool, str, dict[str, Any]]:
         """로컬/테스트용 PRO 체험."""
         if not bool(get_variable("engagement", "allow_demo_pro_activation", True)):
-            return False, "PRO 체험을 사용할 수 없습니다.", self.get_public(login_id)
+            return False, t("plan.demo_disabled"), self.get_public(login_id)
         days = int(get_variable("engagement", "demo_pro_days", 7))
         return self.grant_plan(login_id, "pro", days=days, source="demo")
 
@@ -573,7 +596,7 @@ class EngagementService:
         cost = int(get_variable("engagement", "vip_event_coin_cost", 60))
         if int(profile.get("coins", 0)) >= cost:
             return True, "coins"
-        return False, "PRO 전용 이벤트입니다. PRO 가입 또는 코인 60 필요."
+        return False, t("premium.event")
 
     def spend_for_vip_event(self, login_id: str) -> None:
         """하위 호환 — try_pay_premium_event 사용 권장."""
@@ -594,7 +617,7 @@ class EngagementService:
             coins = int(p.get("coins", 0))
             if coins < cost:
                 result["ok"] = False
-                result["message"] = "VIP 호송은 PRO 가입 또는 코인 60으로 이용할 수 있습니다."
+                result["message"] = t("premium.event")
                 return
             p["coins"] = coins - cost
             result["ok"] = True
@@ -620,8 +643,8 @@ class EngagementService:
         try:
             profile = profile_store.update_profile(login_id, mutate)
         except ValueError:
-            return False, "저장 슬롯이 없습니다.", self.get_public(login_id)
-        return True, "도시가 저장되었습니다.", self.to_public(profile)
+            return False, t("save.no_slot"), self.get_public(login_id)
+        return True, t("save.saved"), self.to_public(profile)
 
     def list_saves(self, login_id: str) -> dict[str, Any]:
         profile = profile_store.get_profile(login_id)
@@ -653,6 +676,8 @@ class EngagementService:
             billing_on = toss_configured()
         except Exception:
             billing_on = False
+        trial_expired = self._trial_expired(profile)
+        trial_end = self._until_dt(profile) if trial_expired else None
         return {
             "login_id": profile.get("login_id"),
             "xp": profile.get("xp", 0),
@@ -664,6 +689,8 @@ class EngagementService:
             "plan_label": plan["name"] if plan else "FREE",
             "pro_until": profile.get("pro_until") if pro else None,
             "is_pro": pro,
+            "trial_expired": trial_expired,
+            "trial_ended_at": trial_end.isoformat() if trial_end else None,
             "active_cosmetic": profile.get("active_cosmetic", "default"),
             "owned_items": profile.get("owned_items", []),
             "boosters": profile.get("boosters", {}),

@@ -24,7 +24,7 @@ window.analyticsPanel = {
         if (!series.length) {
             ctx.fillStyle = '#64748b';
             ctx.font = '12px Inter, sans-serif';
-            ctx.fillText('데이터 수집 중…', 12, h / 2);
+            ctx.fillText(window.t('chart.collecting'), 12, h / 2);
             return;
         }
 

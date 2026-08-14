@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import Any
 
 from engagement.catalog import get_plan
+from utils.i18n import t
 from utils.variables import data_dir
 from engagement import profile_store
 
@@ -43,7 +44,7 @@ def new_order_id() -> str:
 def create_order(login_id: str, plan_id: str) -> tuple[bool, str, dict[str, Any] | None]:
     plan = get_plan(plan_id)
     if plan is None:
-        return False, "알 수 없는 요금제입니다.", None
+        return False, t("billing.unknown_plan"), None
     login_id = login_id.strip().lower()
     order = {
         "order_id": new_order_id(),
@@ -51,7 +52,7 @@ def create_order(login_id: str, plan_id: str) -> tuple[bool, str, dict[str, Any]
         "plan_id": plan["id"],
         "amount": int(plan["price_krw"]),
         "price_usd": int(plan["price_usd"]),
-        "order_name": f"CityFlow {plan['name']} 1개월",
+        "order_name": t("billing.order_name", name=plan["name"]),
         "status": "pending",
         "created_at": profile_store.iso_now(),
         "payment_key": None,
@@ -60,7 +61,7 @@ def create_order(login_id: str, plan_id: str) -> tuple[bool, str, dict[str, Any]
         data = _load()
         data["orders"][order["order_id"]] = order
         _save(data)
-    return True, "주문이 생성되었습니다.", deepcopy(order)
+    return True, t("billing.order_created"), deepcopy(order)
 
 
 def get_order(order_id: str) -> dict[str, Any] | None:

@@ -452,6 +452,43 @@
       "achievements": [],
       "city_saves": {},
       "leaderboard_score": 0
+    },
+    "adviewer": {
+      "login_id": "adviewer",
+      "xp": 0,
+      "level": 1,
+      "coins": 120,
+      "streak_days": 0,
+      "last_login_date": "",
+      "plan": "free",
+      "pro_until": null,
+      "owned_items": [],
+      "active_cosmetic": "default",
+      "boosters": {},
+      "daily": {
+        "date": "",
+        "quests": [],
+        "all_complete_bonus_claimed": false
+      },
+      "lifetime": {
+        "roads_built": 0,
+        "vehicles_spawned": 0,
+        "trips_completed": 0,
+        "events_triggered": 0,
+        "play_seconds": 0.0,
+        "golden_flow_seconds": 0.0,
+        "accidents_cleared": 0,
+        "bus_stops_built": 0,
+        "cargo_classified": 0,
+        "stages_cleared": 0
+      },
+      "stages_completed": [],
+      "active_stage_id": null,
+      "weekly_xp": 0,
+      "week_id": "2026-W33",
+      "achievements": [],
+      "city_saves": {},
+      "leaderboard_score": 0
     }
   }
 }

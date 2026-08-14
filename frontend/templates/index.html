@@ -1,32 +1,36 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CityFlow — 교통 시뮬레이션</title>
+    <meta name="rating" content="general">
+    <title data-i18n="meta.title">CityFlow — 교통 시뮬레이션</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+    <aside class="top-ad-bar" id="topAdBar" hidden>
+        <div class="top-ad-inner" id="topAdInner"></div>
+    </aside>
     <div class="app-shell">
         <header class="top-bar">
             <div class="brand">
                 <span class="brand-icon">🚦</span>
                 <div>
                     <h1>CityFlow</h1>
-                    <p>실시간 교통 시뮬레이션</p>
+                    <p data-i18n="brand.tagline">실시간 교통 시뮬레이션</p>
                 </div>
             </div>
             <div class="top-stats">
                 <div class="stat-chip" id="weatherChip">
                     <span class="chip-icon">☀️</span>
-                    <span id="weatherLabel">맑음</span>
+                    <span id="weatherLabel" data-i18n="weather.clear">맑음</span>
                 </div>
                 <div class="stat-chip" id="timeChip">
                     <span class="chip-icon">🕐</span>
-                    <span id="timeLabel">주간</span>
+                    <span id="timeLabel" data-i18n="time.day">주간</span>
                 </div>
                 <div class="stat-chip">
                     <span class="chip-icon">⏱</span>
@@ -34,13 +38,14 @@
                 </div>
             </div>
             <div class="top-actions">
-                <span class="user-chip">{{ user_name or login_id }}님</span>
-                <button class="btn btn-ghost" id="logoutBtn" type="button">로그아웃</button>
-                <button class="btn btn-ghost" id="pauseBtn" type="button">⏸ 일시정지</button>
-                <button class="btn btn-ghost" id="resetBtn" type="button">↺ 초기화</button>
+                <button class="btn btn-ghost btn-sm" id="langToggleBtn" type="button" data-lang-toggle>EN</button>
+                <span class="user-chip"><span>{{ user_name or login_id }}</span><span data-i18n="nav.honorific">님</span></span>
+                <button class="btn btn-ghost" id="logoutBtn" type="button" data-i18n="nav.logout">로그아웃</button>
+                <button class="btn btn-ghost" id="pauseBtn" type="button" data-i18n="nav.pause">⏸ 일시정지</button>
+                <button class="btn btn-ghost" id="resetBtn" type="button" data-i18n="nav.reset">↺ 초기화</button>
                 <span class="premium-badge" id="proBadge" hidden>PRO</span>
-                <button class="btn btn-premium btn-sm" id="openProBtn" type="button">PRO</button>
-                <button class="btn btn-ghost btn-sm" id="openShopBtn" type="button">🪙 상점</button>
+                <button class="btn btn-premium btn-sm" id="openProBtn" type="button" data-i18n="nav.pro">PRO</button>
+                <button class="btn btn-ghost btn-sm" id="openShopBtn" type="button" data-i18n="nav.shop">🪙 상점</button>
             </div>
         </header>
 
@@ -49,71 +54,71 @@
                 <div class="player-card-head">
                     <span id="playerLevel">Lv.1</span>
                     <span class="player-coins">🪙 <strong id="playerCoins">0</strong></span>
-                    <span class="player-streak">🔥 <span id="playerStreak">0</span>일</span>
+                    <span class="player-streak">🔥 <span id="playerStreak">0</span></span>
                 </div>
                 <div class="xp-bar"><div class="xp-fill" id="playerXpFill"></div></div>
             </div>
 
-            <h2>오늘의 미션</h2>
+            <h2 data-i18n="section.missions">오늘의 미션</h2>
             <ul class="daily-quest-list" id="dailyQuestList"></ul>
-            <button class="btn btn-secondary full-width" id="claimDailyBonusBtn" type="button">
+            <button class="btn btn-secondary full-width" id="claimDailyBonusBtn" type="button" data-i18n="quest.bonus">
                 일일 올클리어 보너스
             </button>
 
-            <h2>스테이지</h2>
+            <h2 data-i18n="section.stages">스테이지</h2>
             <div id="stageActive" class="stage-active" hidden></div>
             <ul class="stage-list" id="stageList">
-                <li class="event-empty">불러오는 중…</li>
+                <li class="event-empty" data-i18n="loading">불러오는 중…</li>
             </ul>
 
-            <h2>도시 저장</h2>
+            <h2 data-i18n="section.saves">도시 저장</h2>
             <div class="save-row">
                 <select id="saveSlotSelect" class="spawn-select">
                     <option value="0">슬롯 1</option>
                 </select>
-                <input id="saveCityName" class="save-name-input" type="text" placeholder="도시 이름" maxlength="24">
+                <input id="saveCityName" class="save-name-input" type="text" data-i18n-placeholder="save.placeholder" placeholder="도시 이름" maxlength="24">
             </div>
             <div class="save-actions">
-                <button class="btn btn-secondary" id="saveCityBtn" type="button">저장</button>
-                <button class="btn btn-ghost" id="loadCityBtn" type="button">불러오기</button>
+                <button class="btn btn-secondary" id="saveCityBtn" type="button" data-i18n="save.save">저장</button>
+                <button class="btn btn-ghost" id="loadCityBtn" type="button" data-i18n="save.load">불러오기</button>
             </div>
 
-            <h2>스킨</h2>
+            <h2 data-i18n="section.skins">스킨</h2>
             <div class="cosmetic-picker" id="cosmeticPicker"></div>
 
-            <h2>업적</h2>
+            <h2 data-i18n="section.achievements">업적</h2>
             <ul class="achievement-list" id="achievementList">
-                <li class="event-empty">불러오는 중…</li>
+                <li class="event-empty" data-i18n="loading">불러오는 중…</li>
             </ul>
 
-            <h2>주간 랭킹</h2>
+            <h2 data-i18n="section.leaderboard">주간 랭킹</h2>
             <ul class="leaderboard-preview" id="leaderboardPreview">
-                <li class="event-empty">불러오는 중…</li>
+                <li class="event-empty" data-i18n="loading">불러오는 중…</li>
             </ul>
 
-            <h2>대시보드</h2>
+            <h2 data-i18n="section.dashboard">대시보드</h2>
             <div class="metric-grid">
                 <div class="metric-card">
-                    <span class="metric-label">활성 차량</span>
+                    <span class="metric-label" data-i18n="metric.active_vehicles">활성 차량</span>
                     <strong id="activeVehicles">0</strong>
                 </div>
                 <div class="metric-card">
-                    <span class="metric-label">총 통행</span>
+                    <span class="metric-label" data-i18n="metric.total_trips">총 통행</span>
                     <strong id="totalCompleted">0</strong>
                 </div>
                 <div class="metric-card">
-                    <span class="metric-label">도로</span>
+                    <span class="metric-label" data-i18n="metric.roads">도로</span>
                     <strong id="roadCount">0</strong>
                 </div>
                 <div class="metric-card">
-                    <span class="metric-label">이벤트</span>
+                    <span class="metric-label" data-i18n="metric.events">이벤트</span>
                     <strong id="activeEvents">0</strong>
                 </div>
             </div>
 
             <div class="congestion-block">
                 <div class="congestion-header">
-                    <span>혼잡도</span>
+                    <span data-i18n="metric.congestion">혼잡도</span>
                     <span id="congestionValue">0%</span>
                 </div>
                 <div class="congestion-bar">
@@ -124,107 +129,107 @@
             <div class="spawn-control">
                 <label class="spawn-toggle">
                     <input id="autoSpawnToggle" type="checkbox">
-                    자동 차량 생성
+                    <span data-i18n="spawn.auto">자동 차량 생성</span>
                 </label>
-                <label for="spawnRate">자동 생성 빈도</label>
+                <label for="spawnRate" data-i18n="spawn.rate">자동 생성 빈도</label>
                 <input id="spawnRate" type="range" min="2" max="50" value="14">
             </div>
 
             <div class="spawn-control spawn-manual">
-                <label for="spawnVehicleType">차량 종류</label>
+                <label for="spawnVehicleType" data-i18n="spawn.type">차량 종류</label>
                 <select id="spawnVehicleType" class="spawn-select">
-                    <option value="random">일반 (랜덤)</option>
-                    <option value="car">승용차</option>
-                    <option value="truck">트럭</option>
-                    <option value="bus">버스</option>
-                    <option value="emergency">긴급차</option>
+                    <option value="random" data-i18n="spawn.random">일반 (랜덤)</option>
+                    <option value="car" data-i18n="spawn.car">승용차</option>
+                    <option value="truck" data-i18n="spawn.truck">트럭</option>
+                    <option value="bus" data-i18n="spawn.bus">버스</option>
+                    <option value="emergency" data-i18n="spawn.emergency">긴급차</option>
                 </select>
-                <button class="btn btn-secondary full-width" id="spawnVehicleBtn" type="button">
+                <button class="btn btn-secondary full-width" id="spawnVehicleBtn" type="button" data-i18n="spawn.one">
                     차량 1대 생성 (도로 시작)
                 </button>
-                <p class="panel-desc">하단 도구에서 <strong>차량 배치</strong>를 선택한 뒤 도로를 클릭해도 됩니다.</p>
+                <p class="panel-desc" data-i18n-html="spawn.hint">하단 도구에서 <strong>차량 배치</strong>를 선택한 뒤 도로를 클릭해도 됩니다.</p>
             </div>
 
-            <h2>교통 분석</h2>
+            <h2 data-i18n="section.analytics">교통 분석</h2>
             <div class="metric-grid analytics-grid">
                 <div class="metric-card">
-                    <span class="metric-label">통과량/분</span>
+                    <span class="metric-label" data-i18n="metric.throughput">통과량/분</span>
                     <strong id="analyticsThroughput">—</strong>
                 </div>
                 <div class="metric-card">
-                    <span class="metric-label">평균 대기(s)</span>
+                    <span class="metric-label" data-i18n="metric.wait">평균 대기(s)</span>
                     <strong id="analyticsWait">—</strong>
                 </div>
                 <div class="metric-card">
-                    <span class="metric-label">최대 혼잡</span>
+                    <span class="metric-label" data-i18n="metric.peak">최대 혼잡</span>
                     <strong id="analyticsPeakCongestion">—</strong>
                 </div>
             </div>
             <canvas id="analyticsChart" class="analytics-chart" width="280" height="90"></canvas>
-            <a class="btn btn-secondary full-width" id="exportAnalyticsBtn" href="/api/analytics/export">CSV 내보내기</a>
+            <a class="btn btn-secondary full-width" id="exportAnalyticsBtn" href="/api/analytics/export" data-i18n="export.csv">CSV 내보내기</a>
 
             <div class="ad-slot" id="adSlot">
-                <span class="ad-label">스폰서</span>
-                <p>교통 시뮬레이션을 즐기는 중입니다</p>
-                <button class="btn btn-premium" id="openProBtnAd" type="button">광고 제거 · PRO</button>
+                <span class="ad-label" data-i18n="ad.label">스폰서</span>
+                <p data-i18n="ad.body">교통 시뮬레이션을 즐기는 중입니다</p>
+                <button class="btn btn-premium" id="openProBtnAd" type="button" data-i18n="ad.cta">광고 제거 · PRO</button>
             </div>
         </aside>
 
         <main class="simulation-stage">
             <canvas id="simulationCanvas"></canvas>
             <div class="camera-toolbar">
-                <button type="button" class="cam-btn" id="cameraZoomInBtn" title="확대">＋</button>
-                <button type="button" class="cam-btn" id="cameraZoomOutBtn" title="축소">－</button>
-                <button type="button" class="cam-btn" id="cameraFitBtn" title="전체 보기">⤢</button>
-                <button type="button" class="cam-btn" id="cameraResetBtn" title="줌 리셋">⌂</button>
+                <button type="button" class="cam-btn" id="cameraZoomInBtn" data-i18n-title="camera.zoom_in" title="확대">＋</button>
+                <button type="button" class="cam-btn" id="cameraZoomOutBtn" data-i18n-title="camera.zoom_out" title="축소">－</button>
+                <button type="button" class="cam-btn" id="cameraFitBtn" data-i18n-title="camera.fit" title="전체 보기">⤢</button>
+                <button type="button" class="cam-btn" id="cameraResetBtn" data-i18n-title="camera.reset" title="줌 리셋">⌂</button>
             </div>
-            <div class="canvas-hint" id="canvasHint">
+            <div class="canvas-hint" id="canvasHint" data-i18n="canvas.hint">
                 캔버스를 드래그하여 도로를 건설하세요 · 휠 줌 · 우클릭 이동
             </div>
             <div class="toast-container" id="toastContainer"></div>
         </main>
 
         <aside class="panel panel-right">
-            <h2>교통 이벤트</h2>
-            <p class="panel-desc">도로 위 상황을 유발하거나 자동 이벤트를 관찰하세요.</p>
+            <h2 data-i18n="section.events">교통 이벤트</h2>
+            <p class="panel-desc" data-i18n="events.desc">도로 위 상황을 유발하거나 자동 이벤트를 관찰하세요.</p>
 
             <div class="event-buttons" id="eventButtons"></div>
 
-            <h3>사고 대응</h3>
-            <p class="panel-desc">충돌 차량은 질량·위치 기반 작용-반작용으로 튕깁니다. 아래 버튼으로 현장을 해결하세요.</p>
+            <h3 data-i18n="events.rescue">사고 대응</h3>
+            <p class="panel-desc" data-i18n="events.rescue_desc">충돌 차량은 질량·위치 기반 작용-반작용으로 튕깁니다. 아래 버튼으로 현장을 해결하세요.</p>
             <div class="rescue-buttons">
-                <button class="btn btn-secondary rescue-btn" id="dispatchPoliceBtn" type="button">🚓 경찰 출동</button>
-                <button class="btn btn-secondary rescue-btn" id="dispatchTowBtn" type="button">🚛 견인차</button>
-                <button class="btn btn-secondary rescue-btn" id="clearAccidentsBtn" type="button">✅ 즉시 정리</button>
+                <button class="btn btn-secondary rescue-btn" id="dispatchPoliceBtn" type="button" data-i18n="events.police">🚓 경찰 출동</button>
+                <button class="btn btn-secondary rescue-btn" id="dispatchTowBtn" type="button" data-i18n="events.tow">🚛 견인차</button>
+                <button class="btn btn-secondary rescue-btn" id="clearAccidentsBtn" type="button" data-i18n="events.clear_now">✅ 즉시 정리</button>
             </div>
             <div class="accident-status" id="accidentStatus">사고 현장: 0건</div>
 
-            <button class="btn btn-secondary full-width" id="clearEventsBtn" type="button">
+            <button class="btn btn-secondary full-width" id="clearEventsBtn" type="button" data-i18n="events.clear_all">
                 모든 이벤트 해제
             </button>
 
-            <h3>활성 이벤트</h3>
+            <h3 data-i18n="events.active">활성 이벤트</h3>
             <ul class="event-list" id="activeEventList">
-                <li class="event-empty">현재 이벤트 없음</li>
+                <li class="event-empty" data-i18n="events.empty">현재 이벤트 없음</li>
             </ul>
 
-            <h3>이벤트 로그</h3>
+            <h3 data-i18n="events.log">이벤트 로그</h3>
             <ul class="event-log" id="eventLog">
-                <li class="event-empty">시뮬레이션을 시작하세요</li>
+                <li class="event-empty" data-i18n="events.start">시뮬레이션을 시작하세요</li>
             </ul>
         </aside>
 
         <footer class="bottom-bar">
             <div class="tool-group">
-                <button class="tool-btn active" data-tool="road" type="button">🛣️ 도로 건설</button>
-                <button class="tool-btn" data-tool="spawn" type="button">🚗 차량 배치</button>
-                <button class="tool-btn" data-tool="bus_stop" type="button">🚌 정류장</button>
-                <button class="tool-btn" data-tool="inspect" type="button">🔍 관찰</button>
+                <button class="tool-btn active" data-tool="road" type="button" data-i18n="tool.road">🛣️ 도로 건설</button>
+                <button class="tool-btn" data-tool="spawn" type="button" data-i18n="tool.spawn">🚗 차량 배치</button>
+                <button class="tool-btn" data-tool="bus_stop" type="button" data-i18n="tool.bus_stop">🚌 정류장</button>
+                <button class="tool-btn" data-tool="inspect" type="button" data-i18n="tool.inspect">🔍 관찰</button>
             </div>
             <div class="road-options" id="roadOptions">
                 <label class="road-option" for="roadLanes">
-                    차선
-                    <select id="roadLanes" class="road-select" title="생성할 도로의 차선 수">
+                    <span data-i18n="road.lanes">차선</span>
+                    <select id="roadLanes" class="road-select" data-i18n-title="road.lanes_title" title="생성할 도로의 차선 수">
                         <option value="1">1</option>
                         <option value="2" selected>2</option>
                         <option value="3">3</option>
@@ -235,25 +240,25 @@
                 </label>
                 <label class="road-option road-check" for="roadBidirectional">
                     <input id="roadBidirectional" type="checkbox" checked>
-                    왕복
+                    <span data-i18n="road.bidirectional">왕복</span>
                 </label>
             </div>
             <div class="cargo-panel" id="cargoPanel" hidden>
-                <span>화물 분류:</span>
+                <span data-i18n="cargo.label">화물 분류:</span>
                 <div id="cargoButtons" class="cargo-buttons"></div>
             </div>
             <p class="inspect-info" id="inspectInfo" hidden></p>
-            <p class="status-line" id="statusLine">서버 연결 중...</p>
+            <p class="status-line" id="statusLine" data-i18n="status.connecting">서버 연결 중...</p>
         </footer>
     </div>
 
     <div class="modal" id="shopModal">
         <div class="modal-card">
             <header class="modal-head">
-                <h2>🪙 City 코인 상점</h2>
+                <h2 data-i18n="shop.title">🪙 City 코인 상점</h2>
                 <button type="button" class="modal-close" id="closeShopBtn">×</button>
             </header>
-            <p class="panel-desc">플레이로 모은 코인으로 부스터·스킨·저장 슬롯을 구매하세요.</p>
+            <p class="panel-desc" data-i18n="shop.desc">플레이로 모은 코인으로 부스터·스킨·저장 슬롯을 구매하세요.</p>
             <div class="shop-grid" id="shopGrid"></div>
         </div>
     </div>
@@ -261,21 +266,25 @@
     <div class="modal" id="proModal">
         <div class="modal-card modal-card-wide">
             <header class="modal-head">
-                <h2>CityFlow 멤버십</h2>
+                <h2 data-i18n="pro.title">CityFlow 멤버십</h2>
                 <button type="button" class="modal-close" id="closeProBtn">×</button>
             </header>
             <div class="plan-grid" id="planGrid"></div>
             <div class="coupon-box">
-                <label for="couponCodeInput">레딧 무료체험 쿠폰 (영문·숫자 8자리)</label>
+                <p class="coupon-expired-msg" id="couponExpiredMsg" hidden data-i18n="coupon.trial_expired">무료 체험이 만료되었습니다.</p>
+                <label for="couponCodeInput" data-i18n="pro.coupon_label">레딧 무료체험 쿠폰 (영문·숫자 8자리)</label>
                 <div class="coupon-row">
                     <input id="couponCodeInput" type="text" maxlength="8" placeholder="RDT1WEEK" autocomplete="off">
-                    <button class="btn btn-secondary" id="redeemCouponBtn" type="button">적용</button>
+                    <button class="btn btn-secondary" id="redeemCouponBtn" type="button" data-i18n="pro.coupon_apply">적용</button>
                 </div>
-                <p class="panel-desc">계정당 1회, 선착순 10명, PRO 7일 체험. 코드 예: RDT1WEEK</p>
+                <p class="panel-desc" data-i18n="pro.coupon_desc">계정당 1회, 선착순 10명, PRO 7일 체험. 코드 예: RDT1WEEK</p>
             </div>
         </div>
     </div>
 
+    <script>window.CITYFLOW_ADS = {{ (ads_config or {}) | tojson }};</script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/ads.js"></script>
     <script src="/js/camera_controller.js"></script>
     <script src="/js/canvas_renderer.js"></script>
     <script src="/js/analytics_panel.js"></script>

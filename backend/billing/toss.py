@@ -9,6 +9,7 @@ from typing import Any
 
 import requests
 
+from utils.i18n import t
 from utils.variables import env_str
 
 logger = logging.getLogger("cityflow.billing")
@@ -41,7 +42,7 @@ def _auth_header() -> str:
 def confirm_payment(payment_key: str, order_id: str, amount: int) -> tuple[bool, dict[str, Any]]:
     """결제 승인. 성공 시 Toss Payment 객체를 반환합니다."""
     if not toss_configured():
-        return False, {"message": "토스페이먼츠 키가 설정되지 않았습니다."}
+        return False, {"message": t("billing.no_keys")}
     try:
         response = requests.post(
             TOSS_CONFIRM_URL,
@@ -59,14 +60,14 @@ def confirm_payment(payment_key: str, order_id: str, amount: int) -> tuple[bool,
         )
     except requests.RequestException:
         logger.exception("toss confirm request failed")
-        return False, {"message": "결제 승인 요청에 실패했습니다."}
+        return False, {"message": t("billing.confirm_request_failed")}
     try:
         payload = response.json()
     except ValueError:
-        return False, {"message": "결제 응답을 해석할 수 없습니다."}
+        return False, {"message": t("billing.parse_failed")}
     if response.status_code != 200:
         return False, {
-            "message": payload.get("message") or "결제 승인에 실패했습니다.",
+            "message": payload.get("message") or t("billing.confirm_failed"),
             "code": payload.get("code"),
         }
     return True, payload

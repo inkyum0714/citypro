@@ -10,7 +10,7 @@ const apiPost = async (url, body = {}) => {
     try {
         data = await res.json();
     } catch {
-        data = { ok: false, message: '서버 응답을 해석할 수 없습니다.' };
+        data = { ok: false, message: window.t('login.parse') };
     }
     return data;
 };
@@ -49,7 +49,7 @@ window.engagementPanel = {
 
         if (levelEl) levelEl.textContent = `Lv.${player.level}`;
         if (coinsEl) coinsEl.textContent = String(player.coins);
-        if (streakEl) streakEl.textContent = `${player.streak_days}일`;
+        if (streakEl) streakEl.textContent = window.t('player.streak', { n: player.streak_days });
         if (xpFill && player.xp_to_next) {
             const pct = Math.min(100, (player.xp / player.xp_to_next) * 100);
             xpFill.style.width = `${pct}%`;
@@ -61,11 +61,19 @@ window.engagementPanel = {
 
         const adSlot = document.getElementById('adSlot');
         if (adSlot) adSlot.hidden = !player.show_ads;
+        window.cityflowAds?.apply(player);
 
         const exportBtn = document.getElementById('exportAnalyticsBtn');
         if (exportBtn) {
             exportBtn.classList.toggle('pro-gated', !player.is_pro);
             exportBtn.dataset.proOnly = player.is_pro ? '0' : '1';
+        }
+
+        this.noticeTrialExpired(player);
+        const expEl = document.getElementById('couponExpiredMsg');
+        if (expEl) {
+            expEl.hidden = !player.trial_expired;
+            if (player.trial_expired) expEl.textContent = window.t('coupon.trial_expired');
         }
 
         this.renderDailyQuests(player);
@@ -78,6 +86,18 @@ window.engagementPanel = {
         if (!this._leaderboardLoaded) {
             this.renderLeaderboardPreview();
         }
+    },
+
+    noticeTrialExpired(player) {
+        if (!player?.trial_expired) return;
+        const key = `trialExpired:${player.login_id}:${player.trial_ended_at || ''}`;
+        try {
+            if (sessionStorage.getItem(key) === '1') return;
+            sessionStorage.setItem(key, '1');
+        } catch {
+            /* ignore */
+        }
+        window.uiBridge?.showToast(window.t('coupon.trial_expired'), 'warning');
     },
 
     applyPlayer(player) {
@@ -96,13 +116,13 @@ window.engagementPanel = {
             list.innerHTML = stages.map((s) => `
                 <li class="stage-item${s.completed ? ' done' : ''}${s.active ? ' active' : ''}">
                     <div class="stage-head">
-                        <strong>${s.name}</strong>
+                        <strong>${window.t(`stage.${s.id}.name`, s.name)}</strong>
                         <span class="stage-diff">★${s.difficulty}</span>
                     </div>
-                    <p class="quest-desc">${s.description}</p>
+                    <p class="quest-desc">${window.t(`stage.${s.id}.desc`, s.description)}</p>
                     <button type="button" class="btn btn-secondary btn-sm stage-start-btn" data-stage-id="${s.id}"
                         ${s.completed ? 'disabled' : ''}>
-                        ${s.completed ? '클리어' : (s.active ? '진행 중' : '시작')}
+                        ${s.completed ? window.t('stage.clear') : (s.active ? window.t('stage.active') : window.t('stage.start'))}
                     </button>
                 </li>`).join('');
             list.querySelectorAll('.stage-start-btn').forEach((btn) => {
@@ -120,7 +140,7 @@ window.engagementPanel = {
             this._stagesLoaded = true;
             this.refreshStageStatus();
         } catch {
-            list.innerHTML = '<li class="event-empty">스테이지 로드 실패</li>';
+            list.innerHTML = `<li class="event-empty">${window.t('stage.load_fail')}</li>`;
         }
     },
 
@@ -137,14 +157,14 @@ window.engagementPanel = {
             }
             activeEl.hidden = false;
             const goals = (stage.goals || []).map((g) =>
-                `<li>${g.completed ? '✓' : '○'} ${g.label}: ${Math.floor(g.progress)}/${g.target}</li>`
+                `<li>${g.completed ? '✓' : '○'} ${window.t(`goal.${g.metric}`, { n: g.target }, g.label)}: ${Math.floor(g.progress)}/${g.target}</li>`
             ).join('');
             activeEl.innerHTML = `
-                <strong>${stage.name}</strong>
+                <strong>${window.t(`stage.${stage.id}.name`, stage.name)}</strong>
                 <ul class="stage-goals">${goals}</ul>
                 <button type="button" class="btn btn-premium btn-sm" id="claimStageBtn"
                     ${stage.all_goals_met && !stage.completed ? '' : 'disabled'}>
-                    ${stage.completed ? '이미 클리어' : '클리어 보상 받기'}
+                    ${stage.completed ? window.t('stage.already') : window.t('stage.claim')}
                 </button>`;
             document.getElementById('claimStageBtn')?.addEventListener('click', async () => {
                 const data2 = await apiPost('/api/engagement/stages/claim', { stage_id: stage.id });
@@ -168,7 +188,7 @@ window.engagementPanel = {
         if (!list) return;
         const quests = player.daily?.quests || [];
         if (!quests.length) {
-            list.innerHTML = '<li class="event-empty">퀘스트 로딩 중…</li>';
+            list.innerHTML = `<li class="event-empty">${window.t('quest.loading')}</li>`;
             return;
         }
         list.innerHTML = quests.map((q) => {
@@ -179,16 +199,16 @@ window.engagementPanel = {
             const claimed = q.claimed;
             let btn = '';
             if (done && !claimed) {
-                btn = `<button type="button" class="quest-claim-btn" data-quest-id="${q.id}">보상</button>`;
+                btn = `<button type="button" class="quest-claim-btn" data-quest-id="${q.id}">${window.t('quest.claim')}</button>`;
             } else if (claimed) {
                 btn = '<span class="quest-done">✓</span>';
             }
             return `
                 <li class="quest-item${done ? ' done' : ''}">
                     <div class="quest-head">
-                        <strong>${q.label}</strong>${btn}
+                        <strong>${window.t(`quest.${q.id}.label`, q.label)}</strong>${btn}
                     </div>
-                    <p class="quest-desc">${q.description}</p>
+                    <p class="quest-desc">${window.t(`quest.${q.id}.desc`, q.description)}</p>
                     <div class="quest-bar"><div class="quest-fill" style="width:${pct}%"></div></div>
                     <span class="quest-reward">🪙${q.reward_coins} · XP ${q.reward_xp}</span>
                 </li>`;
@@ -199,7 +219,7 @@ window.engagementPanel = {
             const allDone = quests.every((q) => q.completed);
             const bonusClaimed = player.daily?.all_complete_bonus_claimed;
             bonusBtn.disabled = !allDone || bonusClaimed;
-            bonusBtn.textContent = bonusClaimed ? '오늘 보너스 수령함' : '일일 올클리어 보너스 (+100🪙)';
+            bonusBtn.textContent = bonusClaimed ? window.t('quest.bonus_claimed') : window.t('quest.bonus');
         }
     },
 
@@ -209,12 +229,12 @@ window.engagementPanel = {
         const unlocked = new Set(player.achievements || []);
         const catalog = player.achievement_catalog || [];
         if (!catalog.length) {
-            el.innerHTML = '<li class="event-empty">업적 정보 없음</li>';
+            el.innerHTML = `<li class="event-empty">${window.t('ach.empty')}</li>`;
             return;
         }
         el.innerHTML = catalog.map((a) => {
             const done = unlocked.has(a.id);
-            const title = a.label || a.name || a.id;
+            const title = window.t(`ach.${a.id}`, a.label || a.name || a.id);
             return `<li class="achievement-item${done ? ' unlocked' : ''}">${done ? '🏅' : '🔒'} ${title}</li>`;
         }).join('');
     },
@@ -240,8 +260,8 @@ window.engagementPanel = {
             opt.value = String(i);
             const meta = saves[String(i)];
             opt.textContent = meta?.name
-                ? `슬롯 ${i + 1}: ${meta.name}`
-                : `슬롯 ${i + 1} (비어 있음)`;
+                ? window.t('save.slot_named', { n: i + 1, name: meta.name })
+                : window.t('save.slot_empty', { n: i + 1 });
             select.appendChild(opt);
         }
         if ([...select.options].some((o) => o.value === prev)) {
@@ -254,9 +274,9 @@ window.engagementPanel = {
         if (!el) return;
         const owned = new Set(['default', ...(player.owned_items || [])]);
         const options = [
-            { id: 'default', name: '기본' },
-            { id: 'neon', name: '네온' },
-            { id: 'sunset', name: '선셋' },
+            { id: 'default', name: window.t('cosmetic.default') },
+            { id: 'neon', name: window.t('cosmetic.neon') },
+            { id: 'sunset', name: window.t('cosmetic.sunset') },
         ].filter((o) => owned.has(o.id) || o.id === 'default');
         el.innerHTML = options.map((o) => `
             <button type="button" class="cosmetic-btn${player.active_cosmetic === o.id ? ' active' : ''}"
@@ -283,8 +303,8 @@ window.engagementPanel = {
             const rows = (data.leaderboard || []).slice(0, 5);
             el.innerHTML = rows.length
                 ? rows.map((r, i) => `
-                    <li>${i + 1}. ${r.login_id} · Lv.${r.level} · 주간 XP ${Math.round(r.weekly_xp)}</li>`).join('')
-                : '<li class="event-empty">아직 참가자가 없습니다</li>';
+                    <li>${i + 1}. ${r.login_id} · Lv.${r.level} · ${window.t('lb.weekly', { n: Math.round(r.weekly_xp) })}</li>`).join('')
+                : `<li class="event-empty">${window.t('lb.empty')}</li>`;
         } catch {
             /* ignore */
         }
@@ -302,11 +322,11 @@ window.engagementPanel = {
                 || owned.has(item.id);
             return `
             <div class="shop-card${already ? ' owned' : ''}">
-                <h4>${item.name}</h4>
-                <p>${item.description}</p>
+                <h4>${window.t(`shop.${item.id}.name`, item.name)}</h4>
+                <p>${window.t(`shop.${item.id}.desc`, item.description)}</p>
                 <button type="button" class="btn btn-secondary shop-buy-btn" data-item-id="${item.id}"
                     ${already && item.type === 'cosmetic' ? 'disabled' : ''}>
-                    ${already && item.type === 'cosmetic' ? '보유 중' : `🪙 ${item.price_coins}`}
+                    ${already && item.type === 'cosmetic' ? window.t('shop.owned') : `🪙 ${item.price_coins}`}
                 </button>
             </div>`;
         }).join('');
@@ -330,13 +350,16 @@ window.engagementPanel = {
         const billingOn = Boolean(player.billing_enabled);
         const current = player.plan || 'free';
         grid.innerHTML = plans.map((plan) => {
-            const currentMark = current === plan.id ? '<span class="plan-current">이용 중</span>' : '';
-            const benefits = (plan.benefits || []).map((b) => `<li>${b}</li>`).join('');
-            const payLabel = billingOn ? `${plan.price_display} 결제` : '결제 설정 필요';
+            const currentMark = current === plan.id ? `<span class="plan-current">${window.t('pro.current')}</span>` : '';
+            const benefits = (plan.benefits || []).map((b, i) =>
+                `<li>${window.t(`plan.${plan.id}.b${i}`, b)}</li>`
+            ).join('');
+            const price = window.t('plan.price_usd', { usd: plan.price_usd });
+            const payLabel = billingOn ? window.t('pro.pay', { price }) : window.t('pro.pay_setup');
             return `
             <div class="plan-card${current === plan.id ? ' current' : ''}">
                 <h4>${plan.name} ${currentMark}</h4>
-                <p class="pro-price">${plan.price_display} <span>${plan.price_krw_display} · 토스 결제</span></p>
+                <p class="pro-price">${price} <span>${window.t('plan.price_krw', { krw: Number(plan.price_krw).toLocaleString() })} · ${window.t('pro.toss')}</span></p>
                 <ul class="pro-benefits">${benefits}</ul>
                 <button type="button" class="btn btn-premium full-width plan-pay-btn" data-plan-id="${plan.id}"
                     ${billingOn ? '' : 'disabled'}>
@@ -435,7 +458,7 @@ window.engagementPanel = {
         document.getElementById('exportAnalyticsBtn')?.addEventListener('click', (e) => {
             if (e.currentTarget.dataset.proOnly === '1') {
                 e.preventDefault();
-                window.uiBridge?.showToast('CSV 내보내기는 PRO 기능입니다. PRO를 체험해 보세요.', 'warning');
+                window.uiBridge?.showToast(window.t('toast.csv_pro'), 'warning');
                 openModal('proModal');
             }
         });

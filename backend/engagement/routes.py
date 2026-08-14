@@ -10,6 +10,7 @@ from auth.routes import login_required
 from engagement.service import EngagementService
 from engine.sim_registry import SimulationRegistry
 from engine.traffic_manager import TrafficManager
+from utils.i18n import t
 
 engagement_bp = Blueprint("engagement", __name__)
 
@@ -126,9 +127,9 @@ def load_city() -> Response:
     slot = int(payload.get("slot", 0))
     snapshot = _svc().get_save_snapshot(_login_id(), slot)
     if snapshot is None:
-        return jsonify({"ok": False, "message": "저장된 도시가 없습니다."}), 404
+        return jsonify({"ok": False, "message": t("save.missing")}), 404
     _mgr().load_city_snapshot(snapshot)
-    return jsonify({"ok": True, "message": "도시를 불러왔습니다."})
+    return jsonify({"ok": True, "message": t("save.loaded")})
 
 
 @engagement_bp.route("/api/engagement/stages")
@@ -146,7 +147,7 @@ def start_stage() -> Response:
 
     stage = get_stage(stage_id)
     if stage is None:
-        return jsonify({"ok": False, "message": "스테이지를 찾을 수 없습니다."}), 404
+        return jsonify({"ok": False, "message": t("stage.not_found")}), 404
     ok, message, player = _svc().start_stage(_login_id(), stage_id)
     if ok:
         _mgr().start_stage(stage)

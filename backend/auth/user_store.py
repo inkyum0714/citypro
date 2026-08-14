@@ -72,19 +72,21 @@ def create_local_user(login_id: str, name: str, password: str) -> tuple[bool, st
     Returns:
         (성공 여부, 메시지)
     """
+    from utils.i18n import t
+
     login_id = login_id.strip().lower()
     if not login_id or len(login_id) < 3:
-        return False, "로그인 ID는 3자 이상이어야 합니다."
+        return False, t("auth.id_min")
     if not name.strip():
-        return False, "이름을 입력하세요."
+        return False, t("auth.name_required")
     if len(password) < 8:
-        return False, "비밀번호는 8자 이상이어야 합니다."
+        return False, t("auth.password_min")
 
     with _lock:
         data = _load_raw()
         users = data.setdefault("users", {})
         if login_id in users:
-            return False, "이미 사용 중인 로그인 ID입니다."
+            return False, t("auth.id_taken")
         users[login_id] = {
             "login_id": login_id,
             "name": name.strip(),
@@ -92,7 +94,7 @@ def create_local_user(login_id: str, name: str, password: str) -> tuple[bool, st
             "auth_provider": "local",
         }
         _save_raw(data)
-    return True, "회원가입이 완료되었습니다."
+    return True, t("auth.register_ok")
 
 
 def verify_local_user(login_id: str, password: str) -> dict[str, Any] | None:

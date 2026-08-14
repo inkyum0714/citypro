@@ -1,28 +1,30 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CityFlow — 결제</title>
+    <title data-i18n="meta.checkout_title">CityFlow — 결제</title>
     <link rel="stylesheet" href="/style.css">
     <script src="https://js.tosspayments.com/v2/standard"></script>
 </head>
 <body class="auth-page">
+    <button class="btn btn-ghost btn-sm auth-lang-toggle" type="button" data-lang-toggle>EN</button>
     <div class="auth-card checkout-card">
-        <h1>CityFlow 결제</h1>
+        <h1 data-i18n="checkout.title">CityFlow 결제</h1>
         {% if error %}
         <p class="auth-error">{{ error }}</p>
-        <p><a class="btn btn-ghost full-width" href="/">돌아가기</a></p>
+        <p><a class="btn btn-ghost full-width" href="/" data-i18n="checkout.back">돌아가기</a></p>
         {% else %}
         <p class="auth-sub">{{ order.order_name }} · {{ user_name }}</p>
-        <p class="pro-price">${{ order.price_usd }}/월 <span>₩{{ "{:,}".format(order.amount) }} 결제</span></p>
+        <p class="pro-price">${{ order.price_usd }}/{{ 'mo' if lang == 'en' else '월' }} <span>₩{{ "{:,}".format(order.amount) }}</span></p>
         <div id="payment-method"></div>
         <div id="agreement"></div>
-        <button type="button" class="btn btn-premium full-width" id="paymentButton">토스로 결제하기</button>
-        <p class="panel-desc">결제 완료 후 등록하신 토스페이먼츠 정산 계좌로 입금됩니다.</p>
-        <p><a href="/">취소하고 돌아가기</a></p>
+        <button type="button" class="btn btn-premium full-width" id="paymentButton" data-i18n="checkout.pay">토스로 결제하기</button>
+        <p class="panel-desc" data-i18n="checkout.note">결제 완료 후 등록하신 토스페이먼츠 정산 계좌로 입금됩니다.</p>
+        <p><a href="/" data-i18n="checkout.cancel">취소하고 돌아가기</a></p>
         {% endif %}
     </div>
+    <script src="/js/i18n.js"></script>
     {% if not error and order %}
     <script>
     (async () => {
@@ -42,7 +44,7 @@
                     failUrl: `${window.location.origin}/pro/fail`,
                 });
             } catch (err) {
-                alert(err?.message || '결제창을 열 수 없습니다.');
+                alert(err?.message || window.t('checkout.open_fail'));
             }
         });
     })();

@@ -1,12 +1,21 @@
-const weatherLabels = {
-    clear: '맑음',
-    rain: '폭우',
-    fog: '안개',
+const weatherKey = {
+    clear: 'weather.clear',
+    rain: 'weather.rain',
+    fog: 'weather.fog',
 };
 
-const timeLabels = {
-    day: '주간',
-    rush_hour: '출퇴근 시간',
+const timeKey = {
+    day: 'time.day',
+    rush_hour: 'time.rush_hour',
+};
+
+const eventLabel = (event) => window.t(`event.${event.type}.label`, event.label || '');
+
+const eventMessage = (event) => {
+    const label = eventLabel(event);
+    const raw = event.message || '';
+    if (raw.includes('수동') || /triggered/i.test(raw)) return window.t('events.manual', { label });
+    return window.t('events.occurred', { label });
 };
 
 const formatSimTime = (seconds) => {
@@ -80,21 +89,23 @@ window.uiBridge = {
         document.getElementById('roadCount').textContent = stats.road_count ?? 0;
         document.getElementById('activeEvents').textContent = stats.active_events ?? 0;
         document.getElementById('simTimeLabel').textContent = formatSimTime(stats.sim_time || 0);
-        document.getElementById('weatherLabel').textContent = weatherLabels[state.weather] || '맑음';
-        document.getElementById('timeLabel').textContent = timeLabels[state.time_of_day] || '주간';
+        document.getElementById('weatherLabel').textContent = window.t(weatherKey[state.weather] || 'weather.clear');
+        document.getElementById('timeLabel').textContent = window.t(timeKey[state.time_of_day] || 'time.day');
 
         const congestion = Math.round((stats.congestion_level || 0) * 100);
         document.getElementById('congestionValue').textContent = `${congestion}%`;
         document.getElementById('congestionFill').style.width = `${congestion}%`;
 
-        document.getElementById('pauseBtn').textContent = stats.is_paused ? '▶ 재개' : '⏸ 일시정지';
+        document.getElementById('pauseBtn').textContent = stats.is_paused
+            ? window.t('nav.resume')
+            : window.t('nav.pause');
         const autoSpawn = document.getElementById('autoSpawnToggle');
         if (autoSpawn && typeof stats.auto_spawn_enabled === 'boolean') {
             autoSpawn.checked = stats.auto_spawn_enabled;
         }
         document.getElementById('statusLine').textContent = stats.is_paused
-            ? '시뮬레이션이 일시정지되었습니다.'
-            : `실시간 운행 중 · 차량 ${stats.active_vehicles ?? 0}대`;
+            ? window.t('status.paused')
+            : window.t('status.running', { n: stats.active_vehicles ?? 0 });
     },
 
     updateEvents(state) {
@@ -102,13 +113,13 @@ window.uiBridge = {
         const events = state.events || [];
 
         if (!events.length) {
-            activeList.innerHTML = '<li class="event-empty">현재 이벤트 없음</li>';
+            activeList.innerHTML = `<li class="event-empty">${window.t('events.empty')}</li>`;
         } else {
             activeList.innerHTML = events.map((event) => `
                 <li class="severity-${event.severity}">
-                    ${event.icon} <strong>${event.label}</strong><br>
-                    ${event.message}<br>
-                    <span style="color:#94a3b8">남은 시간 ${event.remaining}s</span>
+                    ${event.icon} <strong>${eventLabel(event)}</strong><br>
+                    ${eventMessage(event)}<br>
+                    <span style="color:#94a3b8">${window.t('events.remaining', { s: event.remaining })}</span>
                 </li>
             `).join('');
         }
@@ -116,11 +127,11 @@ window.uiBridge = {
         const log = document.getElementById('eventLog');
         const entries = state.event_log || [];
         if (!entries.length) {
-            log.innerHTML = '<li class="event-empty">아직 기록된 이벤트가 없습니다</li>';
+            log.innerHTML = `<li class="event-empty">${window.t('events.none_logged')}</li>`;
         } else {
             log.innerHTML = entries.map((entry) => `
                 <li class="severity-${entry.severity}">
-                    ${entry.icon} ${entry.message}
+                    ${entry.icon} ${eventMessage(entry)}
                 </li>
             `).join('');
         }
@@ -136,8 +147,8 @@ const connectSimulationSocket = () => {
     window.simulationSocket = socket;
 
     socket.addEventListener('open', () => {
-        window.uiBridge.showToast('CityFlow 서버에 연결되었습니다.', 'info');
-        document.getElementById('statusLine').textContent = '서버 연결 완료';
+        window.uiBridge.showToast(window.t('toast.connected'), 'info');
+        document.getElementById('statusLine').textContent = window.t('status.connected');
         if (wsReconnectTimer) {
             clearTimeout(wsReconnectTimer);
             wsReconnectTimer = null;
@@ -153,7 +164,7 @@ const connectSimulationSocket = () => {
         }
 
         if (payload.type === 'error') {
-            window.uiBridge.showToast(payload.data?.message || '연결 오류', 'warning');
+            window.uiBridge.showToast(payload.data?.message || window.t('toast.conn_error'), 'warning');
             return;
         }
 
@@ -171,13 +182,13 @@ const connectSimulationSocket = () => {
     });
 
     socket.addEventListener('close', () => {
-        window.uiBridge.showToast('실시간 연결이 끊어졌습니다. REST로 동기화합니다.', 'warning');
+        window.uiBridge.showToast(window.t('toast.ws_lost'), 'warning');
         wsReconnectTimer = setTimeout(connectSimulationSocket, 3000);
         window.uiBridge.refreshSimulationState();
     });
 
     socket.addEventListener('error', () => {
-        window.uiBridge.showToast('WebSocket 연결 오류 — REST 모드', 'warning');
+        window.uiBridge.showToast(window.t('toast.ws_error'), 'warning');
     });
 };
 

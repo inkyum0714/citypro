@@ -167,11 +167,18 @@
     "demo_pro_days": 7,
     "pro_required_for_csv_export": true
   },
-  "billing": {
-    "usd_to_krw": 1400,
-    "coupon_trial_days": 7,
-    "coupon_trial_plan": "pro",
-    "reddit_coupon_code": "RDT1WEEK",
-    "reddit_coupon_max": 10
-  }
+    "billing": {
+        "usd_to_krw": 1400,
+        "coupon_trial_days": 7,
+        "coupon_trial_plan": "pro",
+        "reddit_coupon_code": "RDT1WEEK",
+        "reddit_coupon_max": 10
+    },
+    "ads": {
+        "enabled": true,
+        "exclude_adult": true,
+        "adsense_client": "",
+        "adsense_slot": "",
+        "adfit_unit": ""
+    }
 }

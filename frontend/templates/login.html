@@ -1,59 +1,61 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CityFlow — 로그인</title>
+    <title data-i18n="meta.login_title">CityFlow — 로그인</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body class="auth-page">
+    <button class="btn btn-ghost btn-sm auth-lang-toggle" type="button" data-lang-toggle>EN</button>
     <div class="auth-card">
         <h1>CityFlow</h1>
-        <p class="auth-sub">교통 시뮬레이션에 로그인하세요</p>
+        <p class="auth-sub" data-i18n="login.sub">교통 시뮬레이션에 로그인하세요</p>
 
         <form id="loginForm" class="auth-form">
             <label>
-                로그인 ID
+                <span data-i18n="login.id">로그인 ID</span>
                 <input type="text" id="loginId" autocomplete="username" required minlength="3">
             </label>
             <label>
-                비밀번호
+                <span data-i18n="login.password">비밀번호</span>
                 <input type="password" id="loginPassword" autocomplete="current-password" required minlength="8">
             </label>
-            <button type="submit" class="btn btn-premium full-width">로그인</button>
+            <button type="submit" class="btn btn-premium full-width" data-i18n="login.submit">로그인</button>
         </form>
 
         <hr class="auth-divider">
 
         <form id="registerForm" class="auth-form">
-            <h2>회원가입</h2>
+            <h2 data-i18n="login.register">회원가입</h2>
             <label>
-                이름
+                <span data-i18n="login.name">이름</span>
                 <input type="text" id="registerName" required>
             </label>
             <label>
-                로그인 ID
+                <span data-i18n="login.id">로그인 ID</span>
                 <input type="text" id="registerLoginId" autocomplete="username" required minlength="3">
             </label>
             <label>
-                비밀번호 (8자 이상)
+                <span data-i18n="login.password_hint">비밀번호 (8자 이상)</span>
                 <input type="password" id="registerPassword" autocomplete="new-password" required minlength="8">
             </label>
-            <button type="submit" class="btn btn-secondary full-width">가입하기</button>
+            <button type="submit" class="btn btn-secondary full-width" data-i18n="login.signup">가입하기</button>
         </form>
 
         {% if google_enabled %}
-        <a class="btn google-btn full-width" href="/auth/google">Google로 계속하기</a>
+        <a class="btn google-btn full-width" href="/auth/google" data-i18n="login.google">Google로 계속하기</a>
         {% else %}
-        <p class="auth-note">Google 로그인: all_variable.json의 auth.google_client_id / secret 설정 후 google_enabled를 true로 변경하세요.</p>
+        <p class="auth-note" data-i18n="login.google_note">Google 로그인: all_variable.json의 auth.google_client_id / secret 설정 후 google_enabled를 true로 변경하세요.</p>
         {% endif %}
 
         <p id="authMessage" class="auth-message"></p>
     </div>
 
+    <script src="/js/i18n.js"></script>
     <script>
         const showMsg = (text, ok = true) => {
             const el = document.getElementById('authMessage');
@@ -65,7 +67,7 @@
             try {
                 return await res.json();
             } catch {
-                return { ok: false, message: '서버 응답을 해석할 수 없습니다.' };
+                return { ok: false, message: window.t('login.parse') };
             }
         };
 
@@ -84,10 +86,10 @@
                 if (data.ok) {
                     window.location.href = '/';
                 } else {
-                    showMsg(data.message || '로그인 실패', false);
+                    showMsg(data.message || window.t('login.fail'), false);
                 }
             } catch {
-                showMsg('네트워크 오류가 발생했습니다.', false);
+                showMsg(window.t('login.network'), false);
             }
         });
 
@@ -117,7 +119,7 @@
                     document.getElementById('loginId').focus();
                 }
             } catch {
-                showMsg('네트워크 오류가 발생했습니다.', false);
+                showMsg(window.t('login.network'), false);
             }
         });
     </script>

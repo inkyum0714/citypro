@@ -11,6 +11,7 @@ from billing import orders as order_store
 from billing.toss import confirm_payment, customer_key_for, toss_client_key, toss_configured
 from engagement.catalog import get_plan
 from engagement.service import EngagementService
+from utils.i18n import t
 
 billing_bp = Blueprint("billing", __name__)
 engagement_service: EngagementService | None = None
@@ -48,7 +49,7 @@ def checkout_page() -> Any:
     if not toss_configured():
         return render_template(
             "checkout.html",
-            error="토스페이먼츠 키가 없습니다. Render에 TOSS_CLIENT_KEY / TOSS_SECRET_KEY를 설정하세요.",
+            error=t("billing.no_keys_hint"),
             order=None,
             client_key="",
             customer_key="",
@@ -85,15 +86,15 @@ def payment_success() -> Any:
         amount = 0
     order = order_store.get_order(order_id)
     if order is None:
-        return render_template("pay_result.html", ok=False, message="주문을 찾을 수 없습니다.")
+        return render_template("pay_result.html", ok=False, message=t("billing.order_missing"))
     if order.get("login_id") != _login_id():
-        return render_template("pay_result.html", ok=False, message="주문 소유자가 일치하지 않습니다.")
+        return render_template("pay_result.html", ok=False, message=t("billing.order_owner"))
     if order.get("status") == "paid":
         player = _svc().get_public(_login_id())
-        return render_template("pay_result.html", ok=True, message="이미 처리된 결제입니다.", player=player)
+        return render_template("pay_result.html", ok=True, message=t("billing.already_paid"), player=player)
     if int(order.get("amount") or 0) != amount:
         order_store.mark_failed(order_id, "amount_mismatch")
-        return render_template("pay_result.html", ok=False, message="결제 금액이 주문과 다릅니다.")
+        return render_template("pay_result.html", ok=False, message=t("billing.amount_mismatch"))
 
     ok, payload = confirm_payment(payment_key, order_id, amount)
     if not ok:
@@ -101,7 +102,7 @@ def payment_success() -> Any:
         return render_template(
             "pay_result.html",
             ok=False,
-            message=str(payload.get("message") or "결제 승인에 실패했습니다."),
+            message=str(payload.get("message") or t("billing.confirm_failed")),
         )
 
     paid = order_store.mark_paid(order_id, payment_key, payload)
@@ -118,7 +119,7 @@ def payment_success() -> Any:
 @login_required
 def payment_fail() -> Any:
     order_id = str(request.args.get("orderId") or "")
-    message = str(request.args.get("message") or "결제가 취소되었거나 실패했습니다.")
+    message = str(request.args.get("message") or t("billing.cancelled"))
     if order_id:
         order_store.mark_failed(order_id, message)
     return render_template("pay_result.html", ok=False, message=message)

@@ -37,7 +37,7 @@ const sendAction = async (payload) => {
         }
         return data.ok;
     } catch {
-        window.uiBridge?.showToast('서버와 연결되지 않았습니다.', 'warning');
+        window.uiBridge?.showToast(window.t('toast.no_server'), 'warning');
         return false;
     }
 };
@@ -93,13 +93,13 @@ const showCargoPanel = (vehicle, catalog) => {
     selectedTruckId = vehicle.id;
     panel.hidden = false;
     const items = catalog || [
-        { id: 'food', label: '식품' },
-        { id: 'construction', label: '건설자재' },
-        { id: 'fuel', label: '연료' },
-        { id: 'general', label: '일반화물' },
+        { id: 'food', label: window.t('cargo.food') },
+        { id: 'construction', label: window.t('cargo.construction') },
+        { id: 'fuel', label: window.t('cargo.fuel') },
+        { id: 'general', label: window.t('cargo.general') },
     ];
     buttons.innerHTML = items.map((c) =>
-        `<button type="button" class="btn btn-ghost btn-sm cargo-btn" data-cargo="${c.id}">${c.icon || ''} ${c.label}</button>`
+        `<button type="button" class="btn btn-ghost btn-sm cargo-btn" data-cargo="${c.id}">${c.icon || ''} ${window.t(`cargo.${c.id}`, c.label)}</button>`
     ).join('');
     buttons.querySelectorAll('.cargo-btn').forEach((btn) => {
         btn.onclick = async () => {
@@ -154,13 +154,13 @@ canvas.addEventListener('click', (event) => {
             let extra = '';
             if (nearest.type === 'truck') {
                 extra = nearest.cargo_classified === false
-                    ? ' · 화물 미분류'
-                    : ` · 화물 ${nearest.cargo_type || '-'}`;
+                    ? window.t('inspect.unclassified')
+                    : window.t('inspect.cargo', { type: nearest.cargo_type || '-' });
             }
             if (nearest.type === 'bus' && nearest.bus_dwell_remaining > 0) {
-                extra = ' · 정류장 정차중';
+                extra = window.t('inspect.dwell');
             }
-            const text = `#${nearest.id} ${nearest.type || 'car'} · ${nearest.speed} · ${tons}t · 부피 ${vol} · 점유 ${occ}${extra}`;
+            const text = `#${nearest.id} ${nearest.type || 'car'} · ${nearest.speed} · ${tons}t · ${window.t('inspect.volume')} ${vol} · ${window.t('inspect.occupancy')} ${occ}${extra}`;
             window.uiBridge?.showToast(text, 'info');
             if (panel) {
                 panel.hidden = false;
@@ -203,7 +203,7 @@ canvas.addEventListener('mouseup', (event) => {
     if (distance < 24) {
         // 의도치 않은 짧은 클릭은 조용히 무시 (드래그 시작만 한 경우)
         if (distance > 6) {
-            window.uiBridge?.showToast('도로가 너무 짧습니다. 조금 더 길게 드래그하세요.', 'warning');
+            window.uiBridge?.showToast(window.t('toast.road_short'), 'warning');
         }
         return;
     }
@@ -244,7 +244,7 @@ window.uiController = {
         });
 
         document.getElementById('resetBtn').addEventListener('click', () => {
-            if (window.confirm('도로와 차량, 이벤트를 모두 초기화할까요?')) {
+            if (window.confirm(window.t('toast.reset_confirm'))) {
                 sendAction({ action: 'reset_simulation' });
                 document.getElementById('canvasHint').style.display = 'block';
                 window.canvasRenderer._didInitialFit = false;
@@ -320,12 +320,13 @@ window.uiController = {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `event-btn${item.severity === 'premium' ? ' premium' : ''}`;
-            button.textContent = `${item.icon} ${item.label}`;
+            const label = window.t(`event.${item.type}.label`, item.label);
+            button.textContent = `${item.icon} ${label}`;
             button.addEventListener('click', () => {
                 sendAction({
                     action: 'trigger_event',
                     event_type: item.type,
-                    message: `${item.label} 수동 발생`,
+                    message: window.t('events.manual', { label }),
                 });
             });
             container.appendChild(button);
@@ -340,10 +341,10 @@ window.uiController = {
         let extra = '';
         if (queue.length) {
             const job = queue[0];
-            const label = job.mode === 'tow' ? '견인' : '경찰';
-            extra = ` · ${label} ETA ${job.eta}s`;
+            const label = job.mode === 'tow' ? window.t('accidents.tow') : window.t('accidents.police');
+            extra = window.t('accidents.eta', { label, eta: job.eta });
         }
-        el.textContent = `사고 현장: ${open}건${extra}`;
+        el.textContent = `${window.t('accidents.status', { n: open })}${extra}`;
         el.classList.toggle('has-accident', open > 0);
     },
 };

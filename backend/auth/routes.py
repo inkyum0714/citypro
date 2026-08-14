@@ -10,6 +10,7 @@ from flask import Blueprint, Response, jsonify, redirect, render_template, reque
 
 from auth.user_store import create_local_user, upsert_google_user, verify_local_user
 from engagement.hooks import on_user_login
+from utils.i18n import t
 from utils.variables import env_bool, env_str, get_variable
 
 auth_bp = Blueprint("auth", __name__)
@@ -47,7 +48,7 @@ def login_required(view: Callable[..., Any]) -> Callable[..., Any]:
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         if not session.get("login_id"):
             if request.path.startswith("/api/"):
-                return jsonify({"ok": False, "message": "로그인이 필요합니다."}), 401
+                return jsonify({"ok": False, "message": t("auth.login_required")}), 401
             return redirect(url_for("auth.login_page"))
         return view(*args, **kwargs)
 
@@ -107,14 +108,14 @@ def login() -> Response:
     password = str(payload.get("password", ""))
     user = verify_local_user(login_id, password)
     if user is None:
-        return jsonify({"ok": False, "message": "아이디 또는 비밀번호가 올바르지 않습니다."}), 401
+        return jsonify({"ok": False, "message": t("auth.bad_credentials")}), 401
     session["login_id"] = user["login_id"]
     session["name"] = user.get("name", user["login_id"])
     player = on_user_login(session["login_id"])
     return jsonify(
         {
             "ok": True,
-            "message": "로그인되었습니다.",
+            "message": t("auth.login_ok"),
             "name": session["name"],
             "player": player,
         }
@@ -125,7 +126,7 @@ def login() -> Response:
 def logout() -> Response:
     """세션 종료."""
     session.clear()
-    return jsonify({"ok": True, "message": "로그아웃되었습니다."})
+    return jsonify({"ok": True, "message": t("auth.logout_ok")})
 
 
 @auth_bp.route("/api/auth/me")
@@ -147,7 +148,7 @@ def me() -> Response:
 def google_login() -> Response:
     """Google OAuth 시작."""
     if not _google_enabled():
-        return jsonify({"ok": False, "message": "Google 로그인이 설정되지 않았습니다."}), 503
+        return jsonify({"ok": False, "message": t("auth.google_not_configured")}), 503
     redirect_uri = url_for("auth.google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 

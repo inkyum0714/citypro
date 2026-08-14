@@ -122,7 +122,32 @@ class CouponAndPlanTests(unittest.TestCase):
         self.svc.on_login("cuser10")
         ok, message, _ = self.svc.redeem_coupon("cuser10", "RDT1WEEK")
         self.assertFalse(ok)
-        self.assertIn("한도", message)
+        self.assertIn("만료", message)
+
+    def test_trial_expired_flag(self):
+        from datetime import datetime, timedelta, timezone
+
+        self.svc.redeem_coupon("couponuser", "RDT1WEEK")
+        past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        profile_store.update_profile("couponuser", lambda p: p.update({"pro_until": past}))
+        player = self.svc.get_public("couponuser")
+        self.assertFalse(player["is_pro"])
+        self.assertTrue(player["trial_expired"])
+
+    def test_coupon_expired_message_english(self):
+        from flask import Flask
+
+        app = Flask(__name__)
+        for i in range(10):
+            uid = f"enuser{i:02d}"
+            self.svc.on_login(uid)
+            ok, message, _ = self.svc.redeem_coupon(uid, "RDT1WEEK")
+            self.assertTrue(ok, message)
+        self.svc.on_login("enuser10")
+        with app.test_request_context(headers={"Cookie": "cityflow_lang=en"}):
+            ok, message, _ = self.svc.redeem_coupon("enuser10", "RDT1WEEK")
+        self.assertFalse(ok)
+        self.assertIn("expired", message.lower())
 
 
 if __name__ == "__main__":

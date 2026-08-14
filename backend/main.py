@@ -18,6 +18,8 @@ from engagement.service import EngagementService
 from billing.routes import billing_bp, init_billing_routes
 from engine.sim_registry import SimulationRegistry
 from engine.traffic_manager import TrafficManager
+from ads import public_ads_config
+from utils.i18n import current_lang, t
 from utils.variables import env_bool, env_str, get_variable, is_render
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 FRONTEND_DIR: Path = BASE_DIR / "frontend"
@@ -306,6 +308,10 @@ def create_app() -> Flask:
     bind_engagement(engagement)
     init_engagement_routes(engagement, sim_registry)
     init_billing_routes(engagement)
+
+    @app.context_processor
+    def inject_i18n() -> dict[str, Any]:
+        return {"lang": current_lang(), "t": t}
     app.register_blueprint(auth_bp)
     app.register_blueprint(engagement_bp)
     app.register_blueprint(billing_bp)
@@ -325,6 +331,7 @@ def create_app() -> Flask:
             "index.html",
             user_name=session.get("name", ""),
             login_id=login_id,
+            ads_config=public_ads_config(),
         )
     @app.route("/api/state")
     @login_required
@@ -341,7 +348,7 @@ def create_app() -> Flask:
         login_id = str(session.get("login_id", ""))
         profile = engagement.get_public(login_id)
         if not profile.get("is_pro") and bool(get_variable("engagement", "pro_required_for_csv_export", True)):
-            return jsonify({"ok": False, "message": "CSV 내보내기는 PRO 기능입니다."}), 403
+            return jsonify({"ok": False, "message": t("csv.pro_only")}), 403
         csv_data = sim_registry.get(login_id).export_analytics_csv()
         return Response(
             csv_data,
@@ -368,7 +375,7 @@ def create_app() -> Flask:
     def simulation(ws: Any) -> None:
         login_id = str(session.get("login_id", "") or "")
         if not login_id:
-            ws.send(_dumps({"type": "error", "data": {"message": "로그인이 필요합니다."}}))
+            ws.send(_dumps({"type": "error", "data": {"message": t("auth.login_required")}}))
             return
         _start_simulation_thread()
         with clients_lock:
