@@ -51,6 +51,24 @@ class TrafficManager:
         self.stage_id: str | None = None
         self.stage_progress: dict[str, float] = {}
         self.frame_metrics: dict[str, float] = {}
+        self._network_dirty = True
+        self._cache_runtime_flags()
+
+    def _cache_runtime_flags(self) -> None:
+        self._use_signals = bool(get_variable("phase4", "use_traffic_signals", True))
+        self._emergency_ignore_signal = bool(get_variable("phase4", "emergency_ignore_signal", True))
+        self._idm_default_lead_length = float(get_variable("phase3", "idm_default_lead_length", 14.0))
+        self._edge_end_is_destination = bool(get_variable("phase4", "edge_end_is_destination", True))
+        self._use_routing = bool(get_variable("phase4", "use_routing", False))
+        self._use_avoidance = bool(get_variable("vehicle", "use_collision_avoidance", True))
+        self._use_idm = bool(get_variable("phase3", "use_idm", True))
+        self._use_mobil = bool(get_variable("phase3", "use_mobil", True))
+        self._adaptive_signals = bool(get_variable("phase6", "adaptive_traffic_lights", True))
+        self._congestion_normalizer = float(
+            get_variable("traffic_manager", "congestion_vehicles_per_road_normalizer", 8.0)
+        )
+        self._emergency_spawn_p = float(get_variable("vehicle", "emergency_spawn_probability", 0.08))
+        self._default_dt = float(get_variable("traffic_manager", "default_dt", 0.033))
 
     def _apply_avoidance(
         self,
@@ -59,13 +77,16 @@ class TrafficManager:
         lead_speed: float | None,
         lead_length: float | None,
     ) -> tuple[float, float | None, float | None]:
-        if not bool(get_variable("vehicle", "use_collision_avoidance", True)):
+        if not self._use_avoidance:
             return gap, lead_speed, lead_length
         active = [v for v in self.vehicles if not v.finished and not getattr(v, "in_accident", False)]
         return avoidance_constraints(vehicle, active, gap, lead_speed, lead_length)
 
     def _sync_network_systems(self) -> None:
+        if not self._network_dirty:
+            return
         self.signals.sync_network(self.road_network.nodes, self.road_network.edges)
+        self._network_dirty = False
 
     def _sync_segments(self) -> None:
         """도로 목록과 1D RoadSegment 캐시를 동기화합니다."""
@@ -123,7 +144,7 @@ class TrafficManager:
                 vehicle.exit_node_id = int(edge_b["end_node_id"])
             vehicle.progress = max(0.0, min(0.999, vehicle.progress))
             vehicle.refresh_world_position()
-            if bool(get_variable("phase4", "use_routing", False)):
+            if self._use_routing:
                 self.router.assign_route(vehicle)
         self._mark_segments_dirty()
 
@@ -147,6 +168,7 @@ class TrafficManager:
         for remap in self.road_network.last_remaps:
             self._remap_vehicles_after_split(remap)
         self._mark_segments_dirty()
+        self._network_dirty = True
         self._sync_network_systems()
         self.router.reroute_network_changed()
         return edge
@@ -266,17 +288,14 @@ class TrafficManager:
             lead_speed = lead.current_speed
             lead_length = lead.length
 
-        if bool(get_variable("phase4", "use_traffic_signals", True)):
-            ignore = vehicle.vehicle_type == "emergency" and bool(
-                get_variable("phase4", "emergency_ignore_signal", True)
-            )
+        if self._use_signals:
+            ignore = vehicle.vehicle_type == "emergency" and self._emergency_ignore_signal
             light = self.signals.get_light(vehicle.exit_node_id)
             if light is not None and not ignore:
                 stop_dist = self.router.distance_to_stop_line(vehicle)
                 if light.must_stop_before_line() and stop_dist > 0.5 and stop_dist < gap:
                     vehicle.waiting_at_signal = True
-                    default_len = float(get_variable("phase3", "idm_default_lead_length", 14.0))
-                    gap, lead_speed, lead_length = stop_dist, 0.0, default_len
+                    gap, lead_speed, lead_length = stop_dist, 0.0, self._idm_default_lead_length
                 else:
                     vehicle.waiting_at_signal = False
             else:
@@ -303,9 +322,7 @@ class TrafficManager:
             if vehicle.finished or vehicle.progress < 1.0:
                 continue
             # 도로 끝=도착 모드이거나 라우팅 사용 시 라우터에 위임
-            if bool(get_variable("phase4", "edge_end_is_destination", True)) or bool(
-                get_variable("phase4", "use_routing", False)
-            ):
+            if self._edge_end_is_destination or self._use_routing:
                 self.router.advance_at_end(vehicle)
             else:
                 vehicle.finished = True
@@ -322,7 +339,7 @@ class TrafficManager:
             return
 
         if dt is None:
-            dt = float(get_variable("traffic_manager", "default_dt", 0.033))
+            dt = self._default_dt
 
         self.sim_time += dt
         self._sync_network_systems()
@@ -333,13 +350,11 @@ class TrafficManager:
         spawn_chance = self.spawn_rate * self.event_manager.get_spawn_multiplier()
         if self.auto_spawn_enabled and random.random() < spawn_chance:
             boosted_type = None
-            emergency_p = float(get_variable("vehicle", "emergency_spawn_probability", 0.08))
-            if random.random() < emergency_p:
+            if random.random() < self._emergency_spawn_p:
                 boosted_type = "emergency"
             self.spawn_vehicle(vehicle_type=boosted_type)
 
         self._sync_segments()
-        self._mark_segments_dirty()
         self._rebuild_segment_vehicles()
 
         for vehicle in self.vehicles:
@@ -435,6 +450,7 @@ class TrafficManager:
         self.stage_id = str(stage["id"])
         self.stage_progress = {g["metric"]: 0.0 for g in stage.get("goals") or []}
         self.auto_spawn_enabled = True
+        self._network_dirty = True
         self._mark_segments_dirty()
         self._sync_network_systems()
         self.router.reroute_network_changed()
@@ -460,6 +476,7 @@ class TrafficManager:
         self.spawn_rate = float(snapshot.get("spawn_rate", self.spawn_rate))
         self.auto_spawn_enabled = bool(snapshot.get("auto_spawn_enabled", self.auto_spawn_enabled))
         self.bus_stops.load(snapshot.get("bus_stops"))
+        self._network_dirty = True
         self._mark_segments_dirty()
         self.router.reroute_network_changed()
 
@@ -491,6 +508,8 @@ class TrafficManager:
         self.stage_id = None
         self.stage_progress = {}
         self.frame_metrics = {}
+        self._network_dirty = True
+        self._cache_runtime_flags()
         self.analytics.reset()
 
     def export_analytics_csv(self) -> str:
@@ -506,31 +525,37 @@ class TrafficManager:
             occ = float(getattr(vehicle, "space_occupancy", 1.0) or 1.0)
             per_road[vehicle.road_id] = per_road.get(vehicle.road_id, 0.0) + occ
 
-        normalizer = float(get_variable("traffic_manager", "congestion_vehicles_per_road_normalizer", 8.0))
+        normalizer = self._congestion_normalizer
         max_density = max(per_road.values())
         return min(1.0, max_density / normalizer)
 
-    def get_state(self) -> dict[str, Any]:
-        """WebSocket/API용 전체 상태 스냅샷."""
+    def get_state(self, *, full: bool = True) -> dict[str, Any]:
+        """WebSocket/API용 상태 스냅샷.
+
+        Args:
+            full: True면 카탈로그·분석 시계열 포함. False면 틱 전송용 슬림 페이로드.
+        """
         events = self.event_manager.to_dict()
         network = self.road_network.to_dict()
-        return {
+        analytics = self.analytics.to_dict()
+        payload: dict[str, Any] = {
+            "snapshot": "full" if full else "tick",
             "nodes": network["nodes"],
             "roads": network["roads"],
             "traffic_lights": self.signals.to_dict(),
-            "vehicles": [vehicle.to_dict() for vehicle in self.vehicles],
+            "vehicles": [vehicle.to_dict(slim=not full) for vehicle in self.vehicles],
             "bus_stops": self.bus_stops.to_dict(),
-            "cargo_catalog": self.cargo.catalog(),
             "golden_hour": self.golden_hour.to_dict(),
             "stage": {"id": self.stage_id, "progress": dict(self.stage_progress)},
             "events": events["active"],
             "event_log": events["log"],
-            "event_catalog": events["catalog"],
-            "rescue_catalog": events.get("rescue_catalog", []),
             "accidents": self.collisions.to_dict(),
             "weather": events["weather"],
             "time_of_day": events["time_of_day"],
-            "analytics": self.analytics.to_dict(),
+            "analytics": analytics if full else {
+                "latest": analytics.get("latest", {}),
+                "summary": analytics.get("summary", {}),
+            },
             "stats": {
                 "sim_time": round(self.sim_time, 1),
                 "active_vehicles": len(self.vehicles),
@@ -548,10 +573,13 @@ class TrafficManager:
                 "is_paused": self.is_paused,
                 "spawn_rate": round(self.spawn_rate, 3),
                 "auto_spawn_enabled": self.auto_spawn_enabled,
-                "drive_model": "idm+mobil"
-                if get_variable("phase3", "use_idm", True) and get_variable("phase3", "use_mobil", True)
-                else "legacy",
-                "routing_enabled": bool(get_variable("phase4", "use_routing", True)),
-                "adaptive_signals": bool(get_variable("phase6", "adaptive_traffic_lights", True)),
+                "drive_model": "idm+mobil" if self._use_idm and self._use_mobil else "legacy",
+                "routing_enabled": self._use_routing,
+                "adaptive_signals": self._adaptive_signals,
             },
         }
+        if full:
+            payload["cargo_catalog"] = self.cargo.catalog()
+            payload["event_catalog"] = events["catalog"]
+            payload["rescue_catalog"] = events.get("rescue_catalog", [])
+        return payload

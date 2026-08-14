@@ -7,12 +7,12 @@ import threading
 import time
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any
 
+from utils.variables import data_dir
+
 _lock = threading.Lock()
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-PROGRESS_PATH = BASE_DIR / "user_progress.json"
+PROGRESS_PATH = data_dir() / "user_progress.json"
 
 
 def _today_str() -> str:

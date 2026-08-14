@@ -406,42 +406,49 @@ class Vehicle:
             lead_length=lead_length,
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, slim: bool = False) -> dict[str, Any]:
         """프론트엔드/WebSocket 직렬화 dict."""
-        return {
+        payload: dict[str, Any] = {
             "id": self.id,
             "x": round(self.x, 2),
             "y": round(self.y, 2),
-            "progress": round(self.progress, 3),
             "speed": round(self.current_speed, 1),
-            "acceleration": round(self.acceleration, 2),
-            "base_speed": round(self.base_speed, 1),
-            "max_speed": round(self.max_speed, 1),
             "color": self.color,
             "type": self.vehicle_type,
             "length": self.length,
             "width": self.width,
-            "height": round(getattr(self, "height", 0.0), 1),
-            "volume": round(getattr(self, "volume", 0.0), 0),
-            "space_occupancy": round(getattr(self, "space_occupancy", 1.0), 2),
             "angle": round(self.angle, 4),
             "road_id": self.road_id,
             "lane_index": self.lane_index,
             "turn_signal": self.turn_signal,
             "state": self.state,
-            "destination_node_id": self.destination_node_id,
-            "exit_node_id": self.exit_node_id,
-            "travel_forward": self.travel_forward,
             "mass_kg": round(self.mass_kg, 0),
             "cargo_type": getattr(self, "cargo_type", None),
             "cargo_classified": bool(getattr(self, "cargo_classified", True)),
             "bus_dwell_remaining": round(float(getattr(self, "bus_dwell_remaining", 0.0) or 0.0), 2),
-            "vx": round(getattr(self, "vx", 0.0), 2),
-            "vy": round(getattr(self, "vy", 0.0), 2),
             "in_accident": self.in_accident,
-            "collision_partner_id": self.collision_partner_id,
-            "last_impulse": round(getattr(self, "last_impulse", 0.0), 1),
             "rescue_state": self.rescue_state,
-            "drive_model": "idm" if get_variable("phase3", "use_idm", True) else "legacy",
             "emergency_flash": self.emergency_flash,
         }
+        if slim:
+            return payload
+        payload.update(
+            {
+                "progress": round(self.progress, 3),
+                "acceleration": round(self.acceleration, 2),
+                "base_speed": round(self.base_speed, 1),
+                "max_speed": round(self.max_speed, 1),
+                "height": round(getattr(self, "height", 0.0), 1),
+                "volume": round(getattr(self, "volume", 0.0), 0),
+                "space_occupancy": round(getattr(self, "space_occupancy", 1.0), 2),
+                "destination_node_id": self.destination_node_id,
+                "exit_node_id": self.exit_node_id,
+                "travel_forward": self.travel_forward,
+                "vx": round(getattr(self, "vx", 0.0), 2),
+                "vy": round(getattr(self, "vy", 0.0), 2),
+                "collision_partner_id": self.collision_partner_id,
+                "last_impulse": round(getattr(self, "last_impulse", 0.0), 1),
+                "drive_model": "idm" if get_variable("phase3", "use_idm", True) else "legacy",
+            }
+        )
+        return payload

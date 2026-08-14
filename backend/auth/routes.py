@@ -10,17 +10,25 @@ from flask import Blueprint, Response, jsonify, redirect, render_template, reque
 
 from auth.user_store import create_local_user, upsert_google_user, verify_local_user
 from engagement.hooks import on_user_login
-from utils.variables import get_variable
+from utils.variables import env_bool, env_str, get_variable
 
 auth_bp = Blueprint("auth", __name__)
 oauth = OAuth()
 
 
+def _google_client_id() -> str:
+    return env_str("GOOGLE_CLIENT_ID") or str(get_variable("auth", "google_client_id", "") or "")
+
+
+def _google_client_secret() -> str:
+    return env_str("GOOGLE_CLIENT_SECRET") or str(get_variable("auth", "google_client_secret", "") or "")
+
+
 def init_oauth(app: Any) -> OAuth:
     """Flask 앱에 OAuth 클라이언트 등록."""
     oauth.init_app(app)
-    client_id = str(get_variable("auth", "google_client_id", "") or "")
-    client_secret = str(get_variable("auth", "google_client_secret", "") or "")
+    client_id = _google_client_id()
+    client_secret = _google_client_secret()
     if client_id and client_secret:
         oauth.register(
             name="google",
@@ -47,11 +55,10 @@ def login_required(view: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def _google_enabled() -> bool:
-    if not bool(get_variable("auth", "google_enabled", False)):
+    enabled = env_bool("GOOGLE_ENABLED", bool(get_variable("auth", "google_enabled", False)))
+    if not enabled:
         return False
-    return bool(get_variable("auth", "google_client_id", "")) and bool(
-        get_variable("auth", "google_client_secret", "")
-    )
+    return bool(_google_client_id()) and bool(_google_client_secret())
 
 
 @auth_bp.route("/login")

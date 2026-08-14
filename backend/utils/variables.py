@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -39,3 +40,35 @@ def get_variable(section: str, key: str, default: Any = None) -> Any:
     """
     data = load_all_variables()
     return data.get(section, {}).get(key, default)
+
+
+def is_render() -> bool:
+    """Render 네이티브 런타임 여부 (플랫폼이 RENDER=true를 주입)."""
+    return os.environ.get("RENDER", "").strip().lower() in ("true", "1")
+
+
+def env_str(*names: str, default: str = "") -> str:
+    """첫 번째로 설정된 환경 변수 값을 반환합니다."""
+    for name in names:
+        value = os.environ.get(name)
+        if value is not None and str(value).strip() != "":
+            return str(value).strip()
+    return default
+
+
+def env_bool(name: str, default: bool = False) -> bool:
+    """환경 변수 불리언. 비어 있으면 default."""
+    value = os.environ.get(name)
+    if value is None or str(value).strip() == "":
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def data_dir() -> Path:
+    """JSON 저장 경로. DATA_DIR이 있으면 그 위치, 없으면 저장소 루트."""
+    configured = env_str("DATA_DIR")
+    if configured:
+        path = Path(configured)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+    return BASE_DIR

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from typing import Any
 
 from utils.math_helpers import clamp
 from utils.variables import get_variable
 
 
+@lru_cache(maxsize=1)
 def _idm_params() -> dict[str, float]:
     """all_variable.json phase3.idm 파라미터."""
     return {

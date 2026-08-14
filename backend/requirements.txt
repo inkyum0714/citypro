@@ -1,6 +1,3 @@
-flask==3.1.1
-flask-sock==0.7.0
-simple-websocket==1.1.0
+# 로컬 개발(웹 서버 + Pygame 뷰어)
+-r ../requirements.txt
 pygame==2.6.1
-authlib==1.7.2
-requests==2.32.4

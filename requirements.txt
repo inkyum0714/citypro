@@ -1,0 +1,10 @@
+# Render Web Service
+# Build:  pip install -r requirements.txt
+# Start:  gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120
+# Health: /health
+flask==3.1.1
+flask-sock==0.7.0
+simple-websocket==1.1.0
+authlib==1.7.2
+requests==2.32.4
+gunicorn==23.0.0

@@ -27,6 +27,23 @@ window.uiBridge = {
 
     applySimulationState(state) {
         if (!state) return;
+        const prev = this._mergedState;
+        if (prev && state.snapshot === 'tick') {
+            state = {
+                ...prev,
+                ...state,
+                event_catalog: state.event_catalog || prev.event_catalog,
+                rescue_catalog: state.rescue_catalog || prev.rescue_catalog,
+                cargo_catalog: state.cargo_catalog || prev.cargo_catalog,
+                analytics: {
+                    ...(prev.analytics || {}),
+                    ...(state.analytics || {}),
+                    series: state.analytics?.series || prev.analytics?.series || [],
+                },
+                player: state.player || prev.player,
+            };
+        }
+        this._mergedState = state;
         try {
             window.canvasRenderer?.render(state);
             window.uiController?.setPreviewState(state);

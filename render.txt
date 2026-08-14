@@ -1,0 +1,31 @@
+CityFlow — Render 배포 설정
+
+Language
+  Python 3
+
+Build Command
+  pip install -r requirements.txt
+
+Start Command
+  gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120
+
+Health Check Path
+  /health
+
+필수 환경 변수
+  SECRET_KEY                 세션 서명 키 (미설정 시 Render에서 재시작마다 로그아웃됨)
+  PYTHON_VERSION             3.12.10  (runtime.txt / .python-version과 동일)
+
+권장 환경 변수
+  PUBLIC_BASE_URL            https://<서비스명>.onrender.com
+  DATA_DIR                   Persistent Disk 마운트 경로 (예: /var/data)
+  GOOGLE_ENABLED             true
+  GOOGLE_CLIENT_ID           Google OAuth 클라이언트 ID
+  GOOGLE_CLIENT_SECRET       Google OAuth 클라이언트 시크릿
+
+참고
+  - workers는 반드시 1 (시뮬레이션 상태가 프로세스 메모리에 있음)
+  - threads는 WebSocket(flask-sock) 동시 연결용
+  - pygame은 프로덕션 requirements.txt에 넣지 않음 (헤드리스 빌드 실패 방지)
+  - Render는 디스크가 기본 휘발성이라 users.json / user_progress.json 유지에는 DATA_DIR + Disk 필요
+  - TRUST_PROXY_HEADERS는 RENDER=true이면 자동 활성화됨

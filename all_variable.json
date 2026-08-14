@@ -73,6 +73,7 @@
   },
   "main": {
     "simulation_step_sleep_seconds": 0.033,
+    "broadcast_interval_seconds": 0.1,
     "spawn_rate_min": 0.02,
     "spawn_rate_max": 0.5,
     "flask_debug": true,

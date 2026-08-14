@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import threading
-from pathlib import Path
 from typing import Any
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-USERS_PATH = BASE_DIR / "users.json"
+from utils.variables import data_dir
+
+USERS_PATH = data_dir() / "users.json"
 _lock = threading.Lock()
 
 

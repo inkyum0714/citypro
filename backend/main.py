@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json
 import logging
+import os
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -10,12 +12,12 @@ from flask import Flask, Response, jsonify, render_template, request, session
 from flask_sock import Sock
 from werkzeug.middleware.proxy_fix import ProxyFix
 from auth.routes import auth_bp, init_oauth, login_required
-from engagement.hooks import bind_engagement, on_user_login
+from engagement.hooks import bind_engagement
 from engagement.routes import engagement_bp, init_engagement_routes
 from engagement.service import EngagementService
 from engine.sim_registry import SimulationRegistry
 from engine.traffic_manager import TrafficManager
-from utils.variables import get_variable
+from utils.variables import env_bool, env_str, get_variable, is_render
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 FRONTEND_DIR: Path = BASE_DIR / "frontend"
 logger = logging.getLogger("cityflow")
@@ -24,6 +26,20 @@ engagement: EngagementService = EngagementService()
 clients: dict[Any, str] = {}
 clients_lock: threading.Lock = threading.Lock()
 _simulation_thread_started: bool = False
+_simulation_thread_lock = threading.Lock()
+_JSON_DUMPS: dict[str, Any] = {"ensure_ascii": False, "separators": (",", ":")}
+_DEV_SECRETS = frozenset(
+    {
+        "cityflow-dev-secret-change-me",
+        "cityflow-change-this-in-production",
+    }
+)
+
+
+def _dumps(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, **_JSON_DUMPS)
+
+
 def _broadcast(message: str) -> None:
     with clients_lock:
         dead: list[Any] = []
@@ -40,19 +56,21 @@ def _broadcast_state() -> None:
     for ws, login_id in snapshot:
         try:
             manager = sim_registry.get(login_id)
-            state = manager.get_state()
+            state = manager.get_state(full=False)
             player = engagement.get_public(login_id)
             payload = {
                 "type": "state",
                 "data": {**state, "player": player},
             }
-            ws.send(json.dumps(payload, ensure_ascii=False))
+            ws.send(_dumps(payload))
         except Exception:
             with clients_lock:
                 clients.pop(ws, None)
 def _simulation_loop() -> None:
     sleep_s = float(get_variable("main", "simulation_step_sleep_seconds", 0.033))
+    broadcast_every = float(get_variable("main", "broadcast_interval_seconds", 0.1))
     prune_every = 0.0
+    since_broadcast = broadcast_every
     while True:
         try:
             with clients_lock:
@@ -68,7 +86,10 @@ def _simulation_loop() -> None:
                 except Exception:
                     logger.exception("simulation step failed for %s", login_id)
             engagement.tick_playtime(sleep_s)
-            _broadcast_state()
+            since_broadcast += sleep_s
+            if since_broadcast >= broadcast_every:
+                since_broadcast = 0.0
+                _broadcast_state()
             prune_every += sleep_s
             if prune_every >= 60.0:
                 prune_every = 0.0
@@ -78,10 +99,11 @@ def _simulation_loop() -> None:
         time.sleep(sleep_s)
 def _start_simulation_thread() -> None:
     global _simulation_thread_started
-    if not _simulation_thread_started:
-        _simulation_thread_started = True
-        thread = threading.Thread(target=_simulation_loop, daemon=True)
-        thread.start()
+    with _simulation_thread_lock:
+        if not _simulation_thread_started:
+            _simulation_thread_started = True
+            thread = threading.Thread(target=_simulation_loop, daemon=True)
+            thread.start()
 def _manager_for(login_id: str | None) -> TrafficManager:
     if not login_id:
         # 비로그인 폴백(테스트/내부용) — 공유하지 않는 임시 인스턴스
@@ -234,6 +256,43 @@ def _handle_action(payload: dict[str, Any], login_id: str | None = None) -> dict
 
     return {"ok": False, "message": "지원하지 않는 액션입니다."}
 
+def _resolve_secret_key() -> str:
+    secret = env_str("SECRET_KEY", "SESSION_SECRET") or str(
+        get_variable("auth", "session_secret", "cityflow-dev-secret-change-me")
+    )
+    if is_render() and secret in _DEV_SECRETS:
+        logger.warning("SECRET_KEY가 없어 임시 키를 사용합니다. 재시작 시 세션이 초기화됩니다.")
+        return secrets.token_hex(32)
+    return secret
+
+
+def _configure_runtime(app: Flask) -> None:
+    app.secret_key = _resolve_secret_key()
+    public_base = env_str("PUBLIC_BASE_URL") or str(
+        get_variable("main", "public_base_url", "") or ""
+    ).strip().rstrip("/")
+    render = is_render()
+    if public_base:
+        from urllib.parse import urlparse
+        parsed = urlparse(public_base)
+        if parsed.scheme:
+            app.config["PREFERRED_URL_SCHEME"] = parsed.scheme
+    if render:
+        app.config["PREFERRED_URL_SCHEME"] = "https"
+    trust_proxy = env_bool(
+        "TRUST_PROXY_HEADERS",
+        True if render else bool(get_variable("main", "trust_proxy_headers", False)),
+    )
+    if trust_proxy:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    secure_cookie = render or app.config.get("PREFERRED_URL_SCHEME") == "https"
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=secure_cookie,
+    )
+
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -241,28 +300,21 @@ def create_app() -> Flask:
         static_folder=str(FRONTEND_DIR),
         static_url_path="",
     )
-    app.secret_key = str(get_variable("auth", "session_secret", "cityflow-dev-secret-change-me"))
-    public_base = str(get_variable("main", "public_base_url", "") or "").strip().rstrip("/")
-    if public_base:
-        from urllib.parse import urlparse
-        parsed = urlparse(public_base)
-        if parsed.netloc:
-            app.config["SERVER_NAME"] = parsed.netloc
-            app.config["PREFERRED_URL_SCHEME"] = parsed.scheme or "https"
-    trust_proxy = bool(get_variable("main", "trust_proxy_headers", False))
-    if trust_proxy:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    _configure_runtime(app)
     init_oauth(app)
     bind_engagement(engagement)
     init_engagement_routes(engagement, sim_registry)
     app.register_blueprint(auth_bp)
     app.register_blueprint(engagement_bp)
     sock = Sock(app)
-    _start_simulation_thread()
+    @app.route("/health")
+    def health() -> Response:
+        return jsonify({"ok": True, "service": "cityflow"})
     @app.route("/")
     @login_required
     def index() -> str:
         login_id = str(session.get("login_id", ""))
+        _start_simulation_thread()
         engagement.touch(login_id)
         sim_registry.get(login_id)
         engagement.get_public(login_id)
@@ -275,6 +327,7 @@ def create_app() -> Flask:
     @login_required
     def get_state() -> Response:
         login_id = str(session.get("login_id", ""))
+        _start_simulation_thread()
         engagement.touch(login_id)
         state = sim_registry.get(login_id).get_state()
         state["player"] = engagement.get_public(login_id)
@@ -297,6 +350,7 @@ def create_app() -> Flask:
     def api_action() -> Response:
         """WebSocket 대체 REST 액션 (연결 실패 시)."""
         login_id = str(session.get("login_id", ""))
+        _start_simulation_thread()
         payload: dict[str, Any] = request.get_json(silent=True) or {}
         result = _handle_action(payload, login_id=login_id)
         return jsonify(result)
@@ -305,21 +359,22 @@ def create_app() -> Flask:
     def trigger_event_api() -> Response:
         payload: dict[str, Any] = {"action": "trigger_event", **(request.get_json(silent=True) or {})}
         login_id = str(session.get("login_id", ""))
+        _start_simulation_thread()
         return jsonify(_handle_action(payload, login_id=login_id))
     @sock.route("/ws")
     def simulation(ws: Any) -> None:
         login_id = str(session.get("login_id", "") or "")
         if not login_id:
-            ws.send(json.dumps({"type": "error", "data": {"message": "로그인이 필요합니다."}}))
+            ws.send(_dumps({"type": "error", "data": {"message": "로그인이 필요합니다."}}))
             return
         _start_simulation_thread()
         with clients_lock:
             clients[ws] = login_id
         engagement.touch(login_id)
         manager = sim_registry.get(login_id)
-        state = manager.get_state()
+        state = manager.get_state(full=True)
         state["player"] = engagement.get_public(login_id)
-        ws.send(json.dumps({"type": "state", "data": state}, ensure_ascii=False))
+        ws.send(_dumps({"type": "state", "data": state}))
         try:
             while True:
                 data = ws.receive()
@@ -329,23 +384,21 @@ def create_app() -> Flask:
                     payload = json.loads(data)
                 except (TypeError, json.JSONDecodeError):
                     ws.send(
-                        json.dumps(
+                        _dumps(
                             {"type": "action_result", "data": {"ok": False, "message": "잘못된 JSON입니다."}},
-                            ensure_ascii=False,
                         )
                     )
                     continue
                 if not isinstance(payload, dict):
                     ws.send(
-                        json.dumps(
+                        _dumps(
                             {"type": "action_result", "data": {"ok": False, "message": "잘못된 요청입니다."}},
-                            ensure_ascii=False,
                         )
                     )
                     continue
                 engagement.touch(login_id)
                 result = _handle_action(payload, login_id=login_id)
-                ws.send(json.dumps({"type": "action_result", "data": result}, ensure_ascii=False))
+                ws.send(_dumps({"type": "action_result", "data": result}))
         finally:
             with clients_lock:
                 clients.pop(ws, None)
@@ -353,6 +406,8 @@ def create_app() -> Flask:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     app = create_app()
-    debug = bool(get_variable("main", "flask_debug", True))
-    port = int(get_variable("main", "flask_port", 5000))
-    app.run(debug=debug, port=port)
+    render = is_render()
+    debug = False if render else bool(get_variable("main", "flask_debug", True))
+    port = int(os.environ.get("PORT") or get_variable("main", "flask_port", 5000))
+    host = "0.0.0.0" if render else env_str("HOST", default="127.0.0.1")
+    app.run(host=host, port=port, debug=debug, threaded=True)
