@@ -167,6 +167,30 @@
     "demo_pro_days": 7,
     "pro_required_for_csv_export": true
   },
+  "ranked": {
+    "mode": "ranked",
+    "leaderboard_size": 10,
+    "points": {
+      "trips_completed": 12,
+      "accidents_cleared": 20,
+      "cargo_classified": 8,
+      "bus_boardings": 4,
+      "golden_flow_seconds": 1,
+      "roads_built": 6,
+      "bus_stops_built": 10,
+      "vehicles_spawned": 1,
+      "events_triggered": 2,
+      "stages_cleared": 50
+    },
+    "tiers": [
+      {"id": "bronze", "min": 0},
+      {"id": "silver", "min": 120},
+      {"id": "gold", "min": 350},
+      {"id": "platinum", "min": 700},
+      {"id": "diamond", "min": 1400},
+      {"id": "master", "min": 2800}
+    ]
+  },
     "billing": {
         "usd_to_krw": 1400,
         "coupon_trial_days": 7,
@@ -177,8 +201,12 @@
     "ads": {
         "enabled": true,
         "exclude_adult": true,
-        "adsense_client": "",
-        "adsense_slot": "",
+        "max_ad_content_rating": "PG",
+        "tag_for_child_directed_treatment": false,
+        "tag_for_under_age_of_consent": false,
+        "adsense_client": "ca-pub-YOUR_CLIENT_ID",
+        "adsense_slot": "YOUR_AD_SLOT_ID",
+        "adsense_slots": ["YOUR_AD_SLOT_ID"],
         "adfit_unit": ""
     }
 }

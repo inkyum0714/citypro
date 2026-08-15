@@ -50,7 +50,16 @@ def engagement_me() -> Response:
 @engagement_bp.route("/api/engagement/leaderboard")
 @login_required
 def engagement_leaderboard() -> Response:
-    return jsonify({"ok": True, "leaderboard": _svc().leaderboard()})
+    board = _svc().leaderboard(_login_id())
+    return jsonify({"ok": True, **board})
+
+
+@engagement_bp.route("/api/engagement/mode", methods=["POST"])
+@login_required
+def set_play_mode() -> Response:
+    payload = request.get_json(silent=True) or {}
+    ok, message, player = _svc().set_play_mode(_login_id(), str(payload.get("mode", "")))
+    return jsonify({"ok": ok, "message": message, "player": player})
 
 
 @engagement_bp.route("/api/engagement/claim-quest", methods=["POST"])

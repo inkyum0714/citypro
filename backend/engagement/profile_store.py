@@ -62,6 +62,9 @@ def default_profile(login_id: str) -> dict[str, Any]:
         "achievements": [],
         "city_saves": {},
         "leaderboard_score": 0,
+        "play_mode": "ranked",
+        "ranked_score": 0,
+        "ranked_season_id": _week_id(),
     }
 
 
@@ -160,21 +163,36 @@ def update_profile(login_id: str, mutator) -> dict[str, Any]:
 
 
 def list_leaderboard(limit: int = 10) -> list[dict[str, Any]]:
+    """주간 XP 미리보기(하위 호환)."""
+    return list_ranked_leaderboard(limit, scored_only=False)
+
+
+def list_ranked_leaderboard(limit: int = 10, *, scored_only: bool = True) -> list[dict[str, Any]]:
+    """랭킹전 시즌 점수 순 목록."""
     with _lock:
         data = _load_all()
         rows: list[dict[str, Any]] = []
+        season = _week_id()
         for login_id, profile in data.get("profiles", {}).items():
+            score = int(profile.get("ranked_score", 0) or 0)
+            stored_season = profile.get("ranked_season_id") or profile.get("week_id")
+            if stored_season != season:
+                score = 0
+            if scored_only and score <= 0:
+                continue
             rows.append(
                 {
                     "login_id": login_id,
-                    "level": profile.get("level", 1),
-                    "weekly_xp": profile.get("weekly_xp", 0),
-                    "leaderboard_score": profile.get("leaderboard_score", 0),
+                    "level": int(profile.get("level", 1) or 1),
+                    "weekly_xp": int(profile.get("weekly_xp", 0) or 0),
+                    "leaderboard_score": int(profile.get("leaderboard_score", 0) or 0),
+                    "score": score,
+                    "play_mode": str(profile.get("play_mode") or "ranked"),
                     "plan": profile.get("plan", "free"),
                 }
             )
-        rows.sort(key=lambda r: (r["weekly_xp"], r["leaderboard_score"]), reverse=True)
-        return rows[:limit]
+        rows.sort(key=lambda r: (r["score"], r["level"], r["weekly_xp"]), reverse=True)
+        return rows[: max(1, int(limit))]
 
 
 def iso_now() -> str:

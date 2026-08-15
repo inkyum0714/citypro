@@ -17,6 +17,14 @@ from engagement.catalog import (
     xp_for_level,
 )
 from engagement import coupon_store, profile_store
+from engagement.scoring import (
+    PLAY_MODE_RANKED,
+    PLAY_MODES,
+    normalize_play_mode,
+    points_for,
+    ranked_config,
+    tier_for,
+)
 from engagement.stages import get_stage, stage_catalog, stage_public
 from utils.i18n import t
 from utils.variables import get_variable
@@ -181,6 +189,31 @@ class EngagementService:
         if profile.get("week_id") != wid:
             profile["week_id"] = wid
             profile["weekly_xp"] = 0
+            profile["ranked_score"] = 0
+            profile["ranked_season_id"] = wid
+        elif profile.get("ranked_season_id") != wid:
+            profile["ranked_score"] = 0
+            profile["ranked_season_id"] = wid
+
+    def _play_mode(self, profile: dict[str, Any]) -> str:
+        return normalize_play_mode(profile.get("play_mode"))
+
+    def _visible_ranked_score(self, profile: dict[str, Any]) -> int:
+        wid = profile_store._week_id()
+        stored = profile.get("ranked_season_id") or profile.get("week_id")
+        if stored != wid:
+            return 0
+        return int(profile.get("ranked_score", 0) or 0)
+
+    def _add_ranked_points(self, profile: dict[str, Any], metric: str, amount: float) -> int:
+        if self._play_mode(profile) != PLAY_MODE_RANKED:
+            return 0
+        self._roll_week(profile)
+        pts = points_for(metric, amount)
+        if pts <= 0:
+            return 0
+        profile["ranked_score"] = int(profile.get("ranked_score", 0) or 0) + pts
+        return pts
 
     def _add_xp(self, profile: dict[str, Any], amount: int, *, apply_multipliers: bool = True) -> None:
         if amount <= 0:
@@ -230,6 +263,7 @@ class EngagementService:
             self._ensure_daily(p)
             self._roll_week(p)
             self._quest_progress(p, metric, amount)
+            self._add_ranked_points(p, metric, amount)
             self._check_achievements(p)
 
         profile = profile_store.update_profile(login_id, mutate)
@@ -277,6 +311,7 @@ class EngagementService:
             self._ensure_daily(p)
             for metric, amount in to_apply.items():
                 self._quest_progress(p, metric, amount)
+                self._add_ranked_points(p, metric, amount)
             self._check_achievements(p)
 
         return self.to_public(profile_store.update_profile(login_id, mutate))
@@ -335,6 +370,7 @@ class EngagementService:
             p["coins"] = int(p.get("coins", 0)) + int(stage.get("reward_coins", 0))
             self._add_xp(p, int(stage.get("reward_xp", 0)))
             self._quest_progress(p, "stages_cleared", 1)
+            self._add_ranked_points(p, "stages_cleared", 1)
             self._check_achievements(p)
 
         try:
@@ -678,6 +714,7 @@ class EngagementService:
             billing_on = False
         trial_expired = self._trial_expired(profile)
         trial_end = self._until_dt(profile) if trial_expired else None
+        ranked_score = self._visible_ranked_score(profile)
         return {
             "login_id": profile.get("login_id"),
             "xp": profile.get("xp", 0),
@@ -698,6 +735,10 @@ class EngagementService:
             "achievements": profile.get("achievements", []),
             "lifetime": profile.get("lifetime", {}),
             "weekly_xp": profile.get("weekly_xp", 0),
+            "play_mode": self._play_mode(profile),
+            "ranked_score": ranked_score,
+            "ranked_tier": tier_for(ranked_score)["id"],
+            "ranked_season_id": profile_store._week_id(),
             "save_slots": self.max_save_slots(profile),
             "shop": shop_items(),
             "pro_plan": pro_plan_catalog(),
@@ -709,7 +750,62 @@ class EngagementService:
             "active_stage_id": profile.get("active_stage_id"),
         }
 
-    def leaderboard(self) -> list[dict[str, Any]]:
-        return profile_store.list_leaderboard(
-            int(get_variable("engagement", "leaderboard_size", 10))
-        )
+    def set_play_mode(self, login_id: str, mode: str) -> tuple[bool, str, dict[str, Any]]:
+        login_id = login_id.strip().lower()
+        chosen = str(mode or "").strip().lower()
+        if chosen not in PLAY_MODES:
+            return False, t("mode.unknown"), self.get_public(login_id)
+
+        def mutate(p: dict[str, Any]) -> None:
+            self._roll_week(p)
+            p["play_mode"] = chosen
+
+        profile = profile_store.update_profile(login_id, mutate)
+        self.touch(login_id)
+        msg = t("mode.ranked_on") if chosen == PLAY_MODE_RANKED else t("mode.sandbox_on")
+        return True, msg, self.to_public(profile)
+
+    def _row_public(self, row: dict[str, Any], rank: int) -> dict[str, Any]:
+        score = int(row.get("score", 0) or 0)
+        return {
+            "rank": rank,
+            "login_id": row.get("login_id"),
+            "level": int(row.get("level", 1) or 1),
+            "weekly_xp": int(row.get("weekly_xp", 0) or 0),
+            "score": score,
+            "tier": tier_for(score)["id"],
+            "play_mode": normalize_play_mode(row.get("play_mode")),
+            "plan": row.get("plan", "free"),
+        }
+
+    def leaderboard(self, login_id: str | None = None) -> dict[str, Any]:
+        cfg = ranked_config()
+        size = int(cfg.get("leaderboard_size") or get_variable("engagement", "leaderboard_size", 10))
+        raw = profile_store.list_ranked_leaderboard(size, scored_only=True)
+        rows = [self._row_public(row, i) for i, row in enumerate(raw, start=1)]
+        me = None
+        if login_id:
+            lid = login_id.strip().lower()
+            me = next((r for r in rows if r["login_id"] == lid), None)
+            if me is None:
+                profile = profile_store.get_profile(lid, create=False)
+                score = int(profile.get("ranked_score", 0) or 0)
+                me = self._row_public(
+                    {
+                        "login_id": lid,
+                        "level": profile.get("level", 1),
+                        "weekly_xp": profile.get("weekly_xp", 0),
+                        "score": score,
+                        "play_mode": profile.get("play_mode"),
+                        "plan": profile.get("plan", "free"),
+                    },
+                    0,
+                )
+        return {
+            "mode": PLAY_MODE_RANKED,
+            "mode_label": "랭킹전",
+            "season_id": profile_store._week_id(),
+            "rules": {"points": cfg["points"], "tiers": cfg["tiers"]},
+            "leaderboard": rows,
+            "me": me,
+        }

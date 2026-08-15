@@ -59,8 +59,7 @@ window.engagementPanel = {
             proBadge.textContent = player.plan_label || (player.is_pro ? 'PRO' : '');
         }
 
-        const adSlot = document.getElementById('adSlot');
-        if (adSlot) adSlot.hidden = !player.show_ads;
+        this.syncPlayMode(player);
         window.cityflowAds?.apply(player);
 
         const exportBtn = document.getElementById('exportAnalyticsBtn');
@@ -292,6 +291,39 @@ window.engagementPanel = {
         });
     },
 
+    syncPlayMode(player) {
+        const mode = player.play_mode === 'sandbox' ? 'sandbox' : 'ranked';
+        document.querySelectorAll('#playModeToggle .mode-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        const modeEl = document.getElementById('playerModeLabel');
+        const scoreEl = document.getElementById('playerRankScore');
+        if (modeEl) modeEl.textContent = window.t(mode === 'ranked' ? 'mode.ranked' : 'mode.sandbox');
+        if (scoreEl) {
+            if (mode === 'ranked') {
+                const tier = window.t(`rank.tier.${player.ranked_tier || 'bronze'}`);
+                scoreEl.hidden = false;
+                scoreEl.textContent = window.t('rank.player_score', {
+                    tier,
+                    n: Math.round(player.ranked_score || 0),
+                });
+            } else {
+                scoreEl.hidden = false;
+                scoreEl.textContent = window.t('rank.sandbox_note');
+            }
+        }
+    },
+
+    rankRowHtml(row, meId) {
+        const mine = row.login_id === meId ? ' me' : '';
+        const tier = window.t(`rank.tier.${row.tier || 'bronze'}`);
+        return `
+            <li class="rank-row">
+                <span class="rank-name${mine}">${row.login_id}</span>
+                <span class="rank-meta">${tier} · ${Math.round(row.score || 0)}</span>
+            </li>`;
+    },
+
     async renderLeaderboardPreview() {
         const el = document.getElementById('leaderboardPreview');
         if (!el) return;
@@ -300,11 +332,34 @@ window.engagementPanel = {
             const data = await res.json();
             if (!data.ok) return;
             this._leaderboardLoaded = true;
-            const rows = (data.leaderboard || []).slice(0, 5);
+            this._leaderboardData = data;
+            const meId = this.player?.login_id;
+            const rows = (data.leaderboard || []).slice(0, 10);
             el.innerHTML = rows.length
-                ? rows.map((r, i) => `
-                    <li>${i + 1}. ${r.login_id} · Lv.${r.level} · ${window.t('lb.weekly', { n: Math.round(r.weekly_xp) })}</li>`).join('')
+                ? rows.map((r) => this.rankRowHtml(r, meId)).join('')
                 : `<li class="event-empty">${window.t('lb.empty')}</li>`;
+            const hint = document.getElementById('rankBoardHint');
+            const pts = data.rules?.points || {};
+            if (hint) {
+                hint.textContent = window.t('rank.hint', {
+                    trip: pts.trips_completed ?? 12,
+                    rescue: pts.accidents_cleared ?? 20,
+                });
+            }
+            const modalList = document.getElementById('rankModalList');
+            if (modalList) {
+                modalList.innerHTML = rows.length
+                    ? rows.map((r) => this.rankRowHtml(r, meId)).join('')
+                    : `<li class="event-empty">${window.t('lb.empty')}</li>`;
+            }
+            const rules = document.getElementById('rankModalRules');
+            if (rules) {
+                rules.textContent = window.t('rank.rules', {
+                    trip: pts.trips_completed ?? 12,
+                    rescue: pts.accidents_cleared ?? 20,
+                    stage: pts.stages_cleared ?? 50,
+                });
+            }
         } catch {
             /* ignore */
         }
@@ -405,11 +460,20 @@ window.engagementPanel = {
             if (this.player) this.renderPlans(this.player);
             openModal('proModal');
         });
-        document.getElementById('openProBtnAd')?.addEventListener('click', () => {
-            if (this.player) this.renderPlans(this.player);
-            openModal('proModal');
-        });
         document.getElementById('closeProBtn')?.addEventListener('click', () => closeModal('proModal'));
+        document.getElementById('openRankModalBtn')?.addEventListener('click', () => {
+            this._leaderboardLoaded = false;
+            this.renderLeaderboardPreview();
+            openModal('rankModal');
+        });
+        document.getElementById('closeRankBtn')?.addEventListener('click', () => closeModal('rankModal'));
+        document.getElementById('playModeToggle')?.addEventListener('click', async (ev) => {
+            const btn = ev.target.closest('.mode-btn');
+            if (!btn?.dataset.mode) return;
+            const data = await apiPost('/api/engagement/mode', { mode: btn.dataset.mode });
+            window.uiBridge?.showToast(data.message, data.ok ? 'info' : 'warning');
+            if (data.player) this.applyPlayer(data.player);
+        });
         document.getElementById('redeemCouponBtn')?.addEventListener('click', async () => {
             const input = document.getElementById('couponCodeInput');
             const code = (input?.value || '').trim();
@@ -432,6 +496,7 @@ window.engagementPanel = {
             if (ev.key === 'Escape') {
                 closeModal('shopModal');
                 closeModal('proModal');
+                closeModal('rankModal');
             }
         });
 
