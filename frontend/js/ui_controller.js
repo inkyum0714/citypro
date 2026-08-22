@@ -44,19 +44,25 @@ const sendAction = async (payload) => {
 
 const drawPreview = () => {
     if (!previewState || !isDrawing) return;
-    window.canvasRenderer.render(previewState);
+    if (!window.clientSim?.getState?.()) {
+        window.canvasRenderer.render(previewState);
+    }
+    paintRoadGhost(previewCtx);
+};
 
-    previewCtx.save();
-    window.simulationCamera.applyTransform(previewCtx, canvas);
-    previewCtx.setLineDash([8, 8]);
-    previewCtx.lineCap = 'round';
-    previewCtx.strokeStyle = 'rgba(91, 140, 255, 0.85)';
-    previewCtx.lineWidth = 18 / window.simulationCamera.zoom;
-    previewCtx.beginPath();
-    previewCtx.moveTo(startWorld.x, startWorld.y);
-    previewCtx.lineTo(currentWorld.x, currentWorld.y);
-    previewCtx.stroke();
-    previewCtx.restore();
+const paintRoadGhost = (ctx) => {
+    if (!isDrawing || activeTool !== 'road') return;
+    ctx.save();
+    window.simulationCamera.applyTransform(ctx, canvas);
+    ctx.setLineDash([8, 8]);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(91, 140, 255, 0.85)';
+    ctx.lineWidth = 18 / window.simulationCamera.zoom;
+    ctx.beginPath();
+    ctx.moveTo(startWorld.x, startWorld.y);
+    ctx.lineTo(currentWorld.x, currentWorld.y);
+    ctx.stroke();
+    ctx.restore();
 };
 
 document.querySelectorAll('.tool-btn').forEach((button) => {
@@ -65,10 +71,14 @@ document.querySelectorAll('.tool-btn').forEach((button) => {
         button.classList.add('active');
         activeTool = button.dataset.tool;
         const roadOptions = document.getElementById('roadOptions');
+        const buildingOptions = document.getElementById('buildingOptions');
         if (roadOptions) {
             roadOptions.hidden = activeTool !== 'road';
         }
-        if (activeTool === 'road' || activeTool === 'bus_stop') {
+        if (buildingOptions) {
+            buildingOptions.hidden = activeTool !== 'building';
+        }
+        if (activeTool === 'road' || activeTool === 'bus_stop' || activeTool === 'building' || activeTool === 'crosswalk') {
             canvas.style.cursor = 'crosshair';
         } else if (activeTool === 'spawn') {
             canvas.style.cursor = 'copy';
@@ -129,6 +139,23 @@ canvas.addEventListener('click', (event) => {
     if (activeTool === 'bus_stop') {
         sendAction({
             action: 'add_bus_stop',
+            world: { x: point.x, y: point.y },
+        });
+        return;
+    }
+
+    if (activeTool === 'building') {
+        sendAction({
+            action: 'add_building',
+            building_type: document.getElementById('buildingType')?.value || 'house_detached',
+            world: { x: point.x, y: point.y },
+        });
+        return;
+    }
+
+    if (activeTool === 'crosswalk') {
+        sendAction({
+            action: 'add_crosswalk',
             world: { x: point.x, y: point.y },
         });
         return;
@@ -233,9 +260,10 @@ window.uiController = {
 
     setPreviewState(state) {
         previewState = state;
-        if (isDrawing) {
-            drawPreview();
-        }
+    },
+
+    paintPreview() {
+        paintRoadGhost(previewCtx);
     },
 
     bindControls() {
@@ -246,6 +274,7 @@ window.uiController = {
         document.getElementById('resetBtn').addEventListener('click', () => {
             if (window.confirm(window.t('toast.reset_confirm'))) {
                 sendAction({ action: 'reset_simulation' });
+                window.clientSim?.reset?.();
                 document.getElementById('canvasHint').style.display = 'block';
                 window.canvasRenderer._didInitialFit = false;
                 window.simulationCamera.reset(canvas);
@@ -274,31 +303,20 @@ window.uiController = {
         });
 
         document.getElementById('cameraFitBtn')?.addEventListener('click', () => {
-            if (window.canvasRenderer.lastState) {
-                window.simulationCamera.fitToState(window.canvasRenderer.lastState, canvas);
-                window.canvasRenderer.render(window.canvasRenderer.lastState);
-            }
+            const state = window.canvasRenderer.lastState;
+            if (state) window.simulationCamera.fitToState(state, canvas);
         });
 
         document.getElementById('cameraResetBtn')?.addEventListener('click', () => {
             window.simulationCamera.reset(canvas);
-            if (window.canvasRenderer.lastState) {
-                window.canvasRenderer.render(window.canvasRenderer.lastState);
-            }
         });
 
         document.getElementById('cameraZoomInBtn')?.addEventListener('click', () => {
             window.simulationCamera.zoomAt(canvas.width / 2, canvas.height / 2, canvas, 1.15);
-            if (window.canvasRenderer.lastState) {
-                window.canvasRenderer.render(window.canvasRenderer.lastState);
-            }
         });
 
         document.getElementById('cameraZoomOutBtn')?.addEventListener('click', () => {
             window.simulationCamera.zoomAt(canvas.width / 2, canvas.height / 2, canvas, 0.87);
-            if (window.canvasRenderer.lastState) {
-                window.canvasRenderer.render(window.canvasRenderer.lastState);
-            }
         });
 
         document.getElementById('dispatchPoliceBtn')?.addEventListener('click', () => {

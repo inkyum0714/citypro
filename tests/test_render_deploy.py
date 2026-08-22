@@ -43,6 +43,26 @@ class StateSnapshotTests(unittest.TestCase):
         self.assertIn("latest", state["analytics"])
         self.assertIn("vehicles", state)
         self.assertIn("stats", state)
+        self.assertIn("roads", state)
+        self.assertTrue(state["stats"]["client_physics"])
+
+    def test_subsequent_tick_omits_unchanged_network(self):
+        manager = TrafficManager()
+        manager.road_network.add_road([0, 0], [200, 0])
+        manager._mark_network_changed()
+        first = manager.get_state(full=False)
+        self.assertIn("roads", first)
+        second = manager.get_state(full=False)
+        self.assertNotIn("roads", second)
+        self.assertNotIn("nodes", second)
+        self.assertEqual(second["network_rev"], first["network_rev"])
+
+    def test_full_state_includes_physics_config(self):
+        manager = TrafficManager()
+        state = manager.get_state(full=True)
+        self.assertIn("physics", state)
+        self.assertTrue(state["physics"]["client_physics"])
+        self.assertIn("collision_radius_scale", state["physics"])
 
 
 if __name__ == "__main__":

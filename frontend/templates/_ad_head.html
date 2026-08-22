@@ -1,0 +1,8 @@
+{% if ads_config and ads_config.adsense_client %}
+<script>
+window.adsbygoogle = window.adsbygoogle || [];
+window.adsbygoogle.pauseAdRequests = 1;
+</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ ads_config.adsense_client }}"
+     crossorigin="anonymous"></script>
+{% endif %}

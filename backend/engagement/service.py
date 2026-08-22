@@ -106,6 +106,16 @@ class EngagementService:
             return int(plan.get("save_slots", 5)) + extra
         return int(get_variable("engagement", "free_save_slots", 1)) + extra
 
+    def max_building_slots(self, profile: dict[str, Any]) -> int:
+        extra = int(profile.get("extra_building_slots", 0))
+        plan = get_plan(self._plan_id(profile))
+        if plan:
+            cap = int(plan.get("building_slots", 80))
+            if cap < 0:
+                return 100000 + extra
+            return cap + extra
+        return int(get_variable("engagement", "free_building_slots", 24)) + extra
+
     def xp_multiplier(self, profile: dict[str, Any]) -> float:
         mult = 1.0
         plan = get_plan(self._plan_id(profile))
@@ -251,6 +261,8 @@ class EngagementService:
             "spawn_vehicle": "vehicles_spawned",
             "trigger_event": "events_triggered",
             "add_bus_stop": "bus_stops_built",
+            "add_building": "buildings_built",
+            "add_crosswalk": "crosswalks_built",
             "classify_cargo": "cargo_classified",
             "clear_accident": "accidents_cleared",
         }
@@ -532,6 +544,8 @@ class EngagementService:
                 p["active_cosmetic"] = item["cosmetic_id"]
             elif item["type"] == "save_slot":
                 p["extra_save_slots"] = int(p.get("extra_save_slots", 0)) + int(item.get("slots_added", 1))
+            elif item["type"] == "building_slot":
+                p["extra_building_slots"] = int(p.get("extra_building_slots", 0)) + int(item.get("slots_added", 20))
             p.setdefault("owned_items", [])
             if item["id"] not in p["owned_items"]:
                 p["owned_items"].append(item["id"])
@@ -740,6 +754,7 @@ class EngagementService:
             "ranked_tier": tier_for(ranked_score)["id"],
             "ranked_season_id": profile_store._week_id(),
             "save_slots": self.max_save_slots(profile),
+            "building_slots": self.max_building_slots(profile),
             "shop": shop_items(),
             "pro_plan": pro_plan_catalog(),
             "plans": pro_plans(),

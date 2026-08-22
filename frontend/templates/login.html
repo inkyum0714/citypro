@@ -8,9 +8,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
+    {% include "_ad_head.html" %}
 </head>
-<body class="auth-page">
+<body class="auth-page public-page">
+    {% include "_ad_consent.html" %}
+    <aside class="top-ad-bar" id="topAdBar">
+        <div class="top-ad-inner" id="topAdInner"></div>
+    </aside>
     <button class="btn btn-ghost btn-sm auth-lang-toggle" type="button" data-lang-toggle>EN</button>
+    <nav class="auth-public-links">
+        <a href="/guide" data-i18n="public.nav_guide">플레이 가이드</a>
+        <a href="/ranks" data-i18n="public.nav_ranks">랭킹</a>
+        <a href="/community" data-i18n="public.nav_community">피드백</a>
+    </nav>
     <div class="auth-card">
         <h1>CityFlow</h1>
         <p class="auth-sub" data-i18n="login.sub">교통 시뮬레이션에 로그인하세요</p>
@@ -54,9 +64,13 @@
 
         <p id="authMessage" class="auth-message"></p>
     </div>
+    <div class="ad-slot ad-card-slot auth-house-slot" id="adSlot"></div>
 
+    <script>window.CITYFLOW_ADS = {{ (ads_config or {}) | tojson }};</script>
     <script src="/js/i18n.js"></script>
+    <script src="/js/ads.js"></script>
     <script>
+        window.cityflowAds?.apply({ show_ads: true });
         const showMsg = (text, ok = true) => {
             const el = document.getElementById('authMessage');
             el.textContent = text;

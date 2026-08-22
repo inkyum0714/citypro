@@ -1,6 +1,7 @@
-/** 사이드바 카드·상단 배너. 성인·선정성 광고는 하우스·네트워크 모두에서 배제합니다. */
+/** 하이브리드 광고: 상단·사이드 네트워크, 카드는 PRO 하우스. 성인 광고 배제. */
 
 const ADULT_MARKS = ['adult', 'sexual', 'dating', 'pornography'];
+const CONSENT_KEY_FALLBACK = 'cityflow_ad_consent';
 
 const loadScriptOnce = (src, id, attrs = {}) => new Promise((resolve, reject) => {
     if (id && document.getElementById(id)) {
@@ -22,29 +23,20 @@ const loadAdsenseScript = (client) => {
     return loadScriptOnce(src, 'adsense-loader', { crossOrigin: 'anonymous' });
 };
 
-/** Google AdSense Display Ads 공식 스니펫과 동일한 유닛 마크업. */
-const displayAdIns = (cfg, extraClass = '') => {
+const displayAdIns = (client, slot, extraClass = '') => {
     const cls = extraClass ? `adsbygoogle ${extraClass}` : 'adsbygoogle';
     return `
     <!-- Display Ads -->
     <ins class="${cls}"
          style="display:block"
-         data-ad-client="${cfg.adsense_client}"
-         data-ad-slot="${cfg.adsense_slot}"
+         data-ad-client="${client}"
+         data-ad-slot="${slot}"
          data-ad-format="auto"
          data-full-width-responsive="true"></ins>`;
 };
 
 const pushAdsense = () => {
     (window.adsbygoogle = window.adsbygoogle || []).push({});
-};
-
-const pickRandomSlot = (cfg) => {
-    const slots = (cfg.adsense_slots || []).filter(Boolean);
-    if (slots.length) {
-        return slots[Math.floor(Math.random() * slots.length)];
-    }
-    return cfg.adsense_slot || '';
 };
 
 const isPlaceholderAdId = (value) => {
@@ -55,50 +47,52 @@ const isPlaceholderAdId = (value) => {
         || text.includes('XXXXXXXX');
 };
 
-const watchAdFill = (container, ins) => {
-    window.setTimeout(() => {
-        if (!container.isConnected) return;
-        const filled = ins.offsetHeight > 20 || Boolean(ins.querySelector('iframe'));
-        container.classList.toggle('ad-container-filled', filled);
-        container.classList.toggle('ad-container-empty', !filled);
-        if (!filled) container.hidden = true;
-    }, 3500);
-};
+const consentKey = (cfg) => cfg?.consent_storage_key || CONSENT_KEY_FALLBACK;
 
-const renderSidebarDisplay = async (cfg) => {
-    const container = document.getElementById('sidebarDisplayAd');
-    if (!container) return;
-    const ins = container.querySelector('ins.adsbygoogle');
-    const client = cfg.adsense_client;
-    const slot = pickRandomSlot(cfg);
-    if (!ins || isPlaceholderAdId(client) || isPlaceholderAdId(slot)) {
-        container.hidden = true;
-        container.classList.add('ad-container-empty');
-        return;
-    }
-    ins.setAttribute('data-ad-client', client);
-    ins.setAttribute('data-ad-slot', slot);
-    ins.setAttribute('data-ad-format', 'auto');
-    ins.setAttribute('data-full-width-responsive', 'true');
-    ins.style.display = 'block';
-    container.hidden = false;
-    container.classList.remove('ad-container-empty');
+const readConsent = (cfg) => {
     try {
-        await loadAdsenseScript(client);
-        pushAdsense();
-        watchAdFill(container, ins);
+        return String(localStorage.getItem(consentKey(cfg)) || '');
     } catch {
-        container.hidden = true;
-        container.classList.add('ad-container-empty');
+        return '';
     }
 };
 
-const openProFromAd = (cfg) => {
-    if (cfg?.billing_enabled && cfg.checkout_plan) {
-        window.location.href = `/pro/checkout?plan=${encodeURIComponent(cfg.checkout_plan)}`;
-        return;
+const writeConsent = (cfg, value) => {
+    try {
+        localStorage.setItem(consentKey(cfg), value);
+    } catch {
+        /* ignore */
     }
-    document.getElementById('openProBtn')?.click();
+};
+
+const isPersonalized = (cfg) => readConsent(cfg) === 'personalized';
+
+const prefersKoreanDemand = () => {
+    const htmlLang = String(document.documentElement.lang || '').toLowerCase();
+    if (htmlLang.startsWith('ko')) return true;
+    const nav = String(navigator.language || navigator.userLanguage || '').toLowerCase();
+    return nav.startsWith('ko');
+};
+
+const slotFor = (cfg, placement) => {
+    const fromPlacement = cfg.placements?.[placement]?.adsense_slot;
+    if (placement === 'top') {
+        return fromPlacement || cfg.adsense_slot_top || '';
+    }
+    if (placement === 'sidebar') {
+        return fromPlacement || cfg.adsense_slot_sidebar || cfg.adsense_slot || '';
+    }
+    return '';
+};
+
+const adfitFor = (cfg, placement) => {
+    if (placement === 'top') {
+        return cfg.placements?.top?.adfit_unit || cfg.adfit_unit || '';
+    }
+    if (placement === 'sidebar') {
+        return cfg.placements?.sidebar?.adfit_unit || cfg.adfit_unit_sidebar || '';
+    }
+    return '';
 };
 
 const applyFamilySafePolicy = (cfg) => {
@@ -108,7 +102,54 @@ const applyFamilySafePolicy = (cfg) => {
     window.google_tag_for_child_directed_treatment = cfg.tag_for_child_directed_treatment ? 1 : 0;
     window.google_tag_for_under_age_of_consent = cfg.tag_for_under_age_of_consent ? 1 : 0;
     window.adsbygoogle = window.adsbygoogle || [];
-    window.adsbygoogle.requestNonPersonalizedAds = 1;
+    window.adsbygoogle.requestNonPersonalizedAds = isPersonalized(cfg) ? 0 : 1;
+};
+
+const releaseAdRequests = () => {
+    window.adsbygoogle = window.adsbygoogle || [];
+    window.adsbygoogle.pauseAdRequests = 0;
+};
+
+const enableAutoAds = async (cfg) => {
+    if (!cfg.auto_ads || !cfg.adsense_client || isPlaceholderAdId(cfg.adsense_client)) return;
+    if (cfg.auto_ads_public_only && !document.body.classList.contains('public-page')) return;
+    try {
+        await loadAdsenseScript(cfg.adsense_client);
+        window.adsbygoogle = window.adsbygoogle || [];
+        window.adsbygoogle.push({
+            google_ad_client: cfg.adsense_client,
+            enable_page_level_ads: true,
+            overlays: {
+                bottom: Boolean(cfg.auto_ads_anchor),
+                vignette: Boolean(cfg.auto_ads_vignette),
+            },
+        });
+    } catch {
+        /* Auto ads는 계정 설정에 의존. 실패해도 수동 유닛은 유지 */
+    }
+};
+
+const watchAdFill = (container, ins, onEmpty) => {
+    window.setTimeout(() => {
+        if (!container.isConnected) return;
+        const filled = ins.offsetHeight > 20 || Boolean(ins.querySelector('iframe'));
+        container.classList.toggle('ad-container-filled', filled);
+        container.classList.toggle('ad-container-empty', !filled);
+        if (!filled && typeof onEmpty === 'function') onEmpty();
+    }, 3500);
+};
+
+const openProFromAd = (cfg) => {
+    if (cfg?.billing_enabled && cfg.checkout_plan) {
+        window.location.href = `/pro/checkout?plan=${encodeURIComponent(cfg.checkout_plan)}`;
+        return;
+    }
+    const proBtn = document.getElementById('openProBtn');
+    if (proBtn) {
+        proBtn.click();
+        return;
+    }
+    window.location.href = '/login';
 };
 
 const houseAdAllowed = (ad, cfg) => {
@@ -171,6 +212,7 @@ const renderHouseBanner = (inner, cfg) => {
 
 const renderHouseCard = (slot, cfg) => {
     const ad = pickHouseAd(cfg);
+    slot.hidden = false;
     slot.innerHTML = `
         <article class="ad-card" data-ad-safe="family" data-max-rating="${cfg.max_ad_content_rating || 'PG'}">
             <div class="ad-card-media">
@@ -186,60 +228,143 @@ const renderHouseCard = (slot, cfg) => {
     document.getElementById('sideAdOpenBtn')?.addEventListener('click', () => openProFromAd(cfg));
 };
 
-const renderAdsenseBanner = async (inner, cfg) => {
-    inner.innerHTML = displayAdIns(cfg, 'top-ad-unit');
+const renderAdsenseUnit = async (host, cfg, slot, extraClass, onEmpty) => {
+    const client = cfg.adsense_client;
+    if (isPlaceholderAdId(client) || isPlaceholderAdId(slot)) {
+        onEmpty();
+        return;
+    }
+    host.innerHTML = displayAdIns(client, slot, extraClass);
+    const ins = host.querySelector('ins.adsbygoogle');
     try {
-        await loadAdsenseScript(cfg.adsense_client);
+        await loadAdsenseScript(client);
         pushAdsense();
+        watchAdFill(host, ins, onEmpty);
     } catch {
-        renderHouseBanner(inner, cfg);
+        onEmpty();
     }
 };
 
-const renderAdsenseCard = async (slot, cfg) => {
-    slot.innerHTML = `
-        <article class="ad-card ad-card-network" data-ad-safe="family">
-            <div class="ad-card-media">${displayAdIns(cfg, 'ad-card-unit')}</div>
-        </article>`;
-    try {
-        await loadAdsenseScript(cfg.adsense_client);
-        pushAdsense();
-    } catch {
-        renderHouseCard(slot, cfg);
+const renderAdfitUnit = async (host, cfg, unit, width, height, extraClass, onEmpty) => {
+    if (isPlaceholderAdId(unit)) {
+        onEmpty();
+        return;
     }
-};
-
-const renderAdfitBanner = async (inner, cfg) => {
-    inner.innerHTML = `
-        <ins class="kakao_ad_area top-ad-unit"
+    host.innerHTML = `
+        <ins class="kakao_ad_area ${extraClass}"
             style="display:none;"
-            data-ad-unit="${cfg.adfit_unit}"
-            data-ad-width="728"
-            data-ad-height="90"
+            data-ad-unit="${unit}"
+            data-ad-width="${width}"
+            data-ad-height="${height}"
             data-ad-safe="family"></ins>`;
     try {
         await loadScriptOnce('https://t1.daumcdn.net/kas/static/ba.min.js', 'adfit-loader');
+        window.setTimeout(() => {
+            const ins = host.querySelector('ins.kakao_ad_area');
+            const filled = ins && (ins.offsetHeight > 20 || ins.querySelector('iframe'));
+            if (!filled) onEmpty();
+        }, 3500);
     } catch {
-        renderHouseBanner(inner, cfg);
+        onEmpty();
     }
 };
 
-const renderAdfitCard = async (slot, cfg) => {
-    slot.innerHTML = `
-        <article class="ad-card ad-card-network" data-ad-safe="family">
-            <div class="ad-card-media">
-                <ins class="kakao_ad_area ad-card-unit"
-                    style="display:none;"
-                    data-ad-unit="${cfg.adfit_unit}"
-                    data-ad-width="300"
-                    data-ad-height="250"
-                    data-ad-safe="family"></ins>
-            </div>
-        </article>`;
-    try {
-        await loadScriptOnce('https://t1.daumcdn.net/kas/static/ba.min.js', 'adfit-loader');
-    } catch {
-        renderHouseCard(slot, cfg);
+const renderTop = (cfg) => {
+    const inner = document.getElementById('topAdInner');
+    if (!inner) return;
+    const useAdfit = Boolean(cfg.korean_adfit_top) && prefersKoreanDemand() && !isPlaceholderAdId(adfitFor(cfg, 'top'));
+    if (useAdfit) {
+        renderAdfitUnit(inner, cfg, adfitFor(cfg, 'top'), 728, 90, 'top-ad-unit', () => {
+            const adsenseSlot = slotFor(cfg, 'top');
+            if (!isPlaceholderAdId(cfg.adsense_client) && !isPlaceholderAdId(adsenseSlot)) {
+                renderAdsenseUnit(inner, cfg, adsenseSlot, 'top-ad-unit', () => renderHouseBanner(inner, cfg));
+                return;
+            }
+            renderHouseBanner(inner, cfg);
+        });
+        return;
+    }
+    const adsenseSlot = slotFor(cfg, 'top');
+    if (!isPlaceholderAdId(cfg.adsense_client) && !isPlaceholderAdId(adsenseSlot)) {
+        renderAdsenseUnit(inner, cfg, adsenseSlot, 'top-ad-unit', () => renderHouseBanner(inner, cfg));
+        return;
+    }
+    renderHouseBanner(inner, cfg);
+};
+
+const renderSidebar = (cfg) => {
+    const container = document.getElementById('sidebarDisplayAd');
+    if (!container) return;
+    const houseFallback = () => {
+        container.hidden = false;
+        container.classList.remove('ad-container-empty');
+        renderHouseCard(container, cfg);
+    };
+    const adsenseSlot = slotFor(cfg, 'sidebar');
+    if (!isPlaceholderAdId(cfg.adsense_client) && !isPlaceholderAdId(adsenseSlot)) {
+        container.hidden = false;
+        container.classList.remove('ad-container-empty');
+        renderAdsenseUnit(container, cfg, adsenseSlot, 'ad-sidebar-unit', houseFallback);
+        return;
+    }
+    const adfit = adfitFor(cfg, 'sidebar');
+    if (prefersKoreanDemand() && !isPlaceholderAdId(adfit)) {
+        container.hidden = false;
+        renderAdfitUnit(container, cfg, adfit, 300, 250, 'ad-card-unit', houseFallback);
+        return;
+    }
+    houseFallback();
+};
+
+const renderCard = (cfg) => {
+    const slot = document.getElementById('adSlot');
+    if (!slot) return;
+    renderHouseCard(slot, cfg);
+};
+
+const hasNetworkAds = (cfg) => (
+    !isPlaceholderAdId(cfg.adsense_client)
+    || !isPlaceholderAdId(adfitFor(cfg, 'top'))
+    || !isPlaceholderAdId(adfitFor(cfg, 'sidebar'))
+);
+
+const bindConsent = (cfg, onReady) => {
+    const bar = document.getElementById('adConsentBar');
+    const existing = readConsent(cfg);
+    if (existing || !hasNetworkAds(cfg)) {
+        if (bar) bar.hidden = true;
+        onReady();
+        return;
+    }
+    if (bar) {
+        bar.hidden = false;
+        document.body.classList.add('has-ad-consent');
+    }
+    const finish = (value) => {
+        writeConsent(cfg, value);
+        applyFamilySafePolicy(cfg);
+        if (bar) bar.hidden = true;
+        document.body.classList.remove('has-ad-consent');
+        onReady();
+    };
+    document.getElementById('adConsentPersonalized')?.addEventListener('click', () => finish('personalized'));
+    document.getElementById('adConsentNpa')?.addEventListener('click', () => finish('npa'));
+};
+
+const fillNetwork = (cfg) => {
+    applyFamilySafePolicy(cfg);
+    releaseAdRequests();
+    enableAutoAds(cfg);
+    const bar = document.getElementById('topAdBar');
+    const inner = document.getElementById('topAdInner');
+    if (bar && !bar.hidden && inner && !window.cityflowAds._topFilled) {
+        window.cityflowAds._topFilled = true;
+        renderTop(cfg);
+    }
+    const sidebar = document.getElementById('sidebarDisplayAd');
+    if (sidebar && !window.cityflowAds._sidebarFilled) {
+        window.cityflowAds._sidebarFilled = true;
+        renderSidebar(cfg);
     }
 };
 
@@ -247,6 +372,7 @@ window.cityflowAds = {
     _topFilled: false,
     _cardFilled: false,
     _sidebarFilled: false,
+    _booted: false,
 
     apply(player) {
         const cfg = window.CITYFLOW_ADS || {};
@@ -256,68 +382,37 @@ window.cityflowAds = {
         if (bar) {
             bar.hidden = !show;
             document.body.classList.toggle('has-top-ad', show);
-            if (show && !this._topFilled) {
-                this._topFilled = true;
-                this.renderTop(cfg);
-            }
         }
         const slot = document.getElementById('adSlot');
         if (slot) {
             slot.hidden = !show;
             if (show && !this._cardFilled) {
                 this._cardFilled = true;
-                this.renderCard(cfg);
+                renderCard(cfg);
             }
         }
         const sidebar = document.getElementById('sidebarDisplayAd');
-        if (sidebar) {
-            if (!show) {
-                sidebar.hidden = true;
-            } else if (!this._sidebarFilled) {
-                this._sidebarFilled = true;
-                this.renderSidebar(cfg);
-            }
+        if (sidebar && !show) {
+            sidebar.hidden = true;
         }
-    },
-
-    renderSidebar(cfg) {
-        renderSidebarDisplay(cfg);
-    },
-
-    renderTop(cfg) {
-        const inner = document.getElementById('topAdInner');
-        if (!inner) return;
-        if (cfg.provider === 'adsense' && cfg.adsense_client && cfg.adsense_slot) {
-            renderAdsenseBanner(inner, cfg);
+        const consentBar = document.getElementById('adConsentBar');
+        if (!show) {
+            if (consentBar) consentBar.hidden = true;
+            document.body.classList.remove('has-ad-consent');
             return;
         }
-        if (cfg.provider === 'adfit' && cfg.adfit_unit) {
-            renderAdfitBanner(inner, cfg);
-            return;
-        }
-        renderHouseBanner(inner, cfg);
-    },
-
-    renderCard(cfg) {
-        const slot = document.getElementById('adSlot');
-        if (!slot) return;
-        if (cfg.provider === 'adsense' && cfg.adsense_client && cfg.adsense_slot) {
-            renderAdsenseCard(slot, cfg);
-            return;
-        }
-        if (cfg.provider === 'adfit' && cfg.adfit_unit) {
-            renderAdfitCard(slot, cfg);
-            return;
-        }
-        renderHouseCard(slot, cfg);
+        if (this._booted) return;
+        this._booted = true;
+        bindConsent(cfg, () => fillNetwork(cfg));
     },
 
     refreshHouse() {
         const cfg = window.CITYFLOW_ADS || {};
-        if (cfg.provider && cfg.provider !== 'house') return;
         const bar = document.getElementById('topAdBar');
         const inner = document.getElementById('topAdInner');
-        if (bar && !bar.hidden && inner) renderHouseBanner(inner, cfg);
+        if (bar && !bar.hidden && inner && inner.querySelector('.top-ad-house')) {
+            renderHouseBanner(inner, cfg);
+        }
         const slot = document.getElementById('adSlot');
         if (slot && !slot.hidden) renderHouseCard(slot, cfg);
     },

@@ -81,6 +81,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "shop.cosmetic_neon.name": "네온 도로 스킨",
         "shop.cosmetic_sunset.name": "선셋 스킨",
         "shop.save_slot_extra.name": "도시 저장 슬롯 +1",
+        "shop.city_expansion.name": "도시 확장권 +20",
+        "shop.cosmetic_night.name": "야간 도시 스킨",
+        "public.meta_desc": "CityFlow 교통 시뮬레이션 가이드와 랭킹전. 도로를 잇고 흐름을 운영하세요.",
     },
     "en": {
         "auth.id_min": "Login ID must be at least 3 characters.",
@@ -155,6 +158,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "shop.cosmetic_neon.name": "Neon road skin",
         "shop.cosmetic_sunset.name": "Sunset skin",
         "shop.save_slot_extra.name": "City save slot +1",
+        "shop.city_expansion.name": "City expansion +20 lots",
+        "shop.cosmetic_night.name": "Night city skin",
+        "public.meta_desc": "CityFlow traffic simulation guide and ranked board. Build roads and run the flow.",
     },
 }
 

@@ -86,6 +86,48 @@ class CollisionPhysicsTests(unittest.TestCase):
         manager.collisions._tick_rescue(10.0)
         self.assertEqual(manager.collisions.open_accident_count(), 0)
 
+    def test_client_report_registers_accident(self):
+        manager = TrafficManager()
+        manager.road_network.add_road([0, 0], [300, 0])
+        road = manager.road_network.roads[0]
+        a = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.4)
+        b = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.42)
+        a.x, a.y = 120.0, 0.0
+        b.x, b.y = 126.0, 0.0
+        applied = manager.collisions.apply_client_reports(
+            [{"id_a": a.id, "id_b": b.id, "impulse": 40.0}]
+        )
+        self.assertEqual(applied, 1)
+        self.assertTrue(a.in_accident)
+        self.assertTrue(b.in_accident)
+
+    def test_client_report_rejects_far_pair(self):
+        manager = TrafficManager()
+        manager.road_network.add_road([0, 0], [300, 0])
+        road = manager.road_network.roads[0]
+        a = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.1)
+        b = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.9)
+        a.refresh_world_position()
+        b.refresh_world_position()
+        applied = manager.collisions.apply_client_reports(
+            [{"id_a": a.id, "id_b": b.id, "impulse": 40.0}]
+        )
+        self.assertEqual(applied, 0)
+        self.assertFalse(a.in_accident)
+
+    def test_client_physics_skips_server_scan(self):
+        manager = TrafficManager()
+        manager._client_physics = True
+        manager.road_network.add_road([0, 0], [300, 0])
+        road = manager.road_network.roads[0]
+        a = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.4)
+        b = manager.create_vehicle_on_edge(road, lane_index=0, progress=0.41)
+        a.x, a.y = 120.0, 0.0
+        b.x, b.y = 121.0, 0.0
+        manager.collisions.tick(0.033)
+        self.assertFalse(a.in_accident)
+        self.assertFalse(b.in_accident)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,224 @@ body {
     background: radial-gradient(circle at top, #172554 0%, var(--bg) 45%);
 }
 
+html:has(body.public-page),
+body.public-page {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+}
+
+.ad-consent {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #0f172a;
+    border-top: 1px solid var(--panel-border);
+}
+
+.ad-consent[hidden] {
+    display: none !important;
+}
+
+body.has-ad-consent {
+    padding-bottom: 72px;
+}
+
+.ad-consent-copy {
+    margin: 0;
+    flex: 1 1 280px;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.ad-consent-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.ad-exclude ins.adsbygoogle,
+.ad-exclude .google-auto-placed {
+    display: none !important;
+}
+
+.public-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+.public-brand {
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.public-nav nav {
+    display: flex;
+    gap: 14px;
+    flex: 1;
+}
+
+.public-nav nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.public-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    padding: 24px 20px 48px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.public-main h1 {
+    margin: 0 0 12px;
+}
+
+.public-lead {
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.community-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 0 0 20px;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.community-sources a {
+    color: var(--accent);
+}
+
+.community-thread {
+    display: grid;
+    gap: 16px;
+}
+
+.community-comment {
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+}
+
+.community-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-bottom: 8px;
+}
+
+.community-meta strong {
+    color: var(--text);
+}
+
+.community-comment h2 {
+    margin: 0 0 10px;
+    font-size: 1.05rem;
+}
+
+.community-body {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #dbe4f5;
+}
+
+.community-actions {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.community-action {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.community-action::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: var(--muted);
+}
+
+.community-action-applied::before {
+    background: var(--success);
+}
+
+.community-action-kept::before {
+    background: var(--accent);
+}
+
+.community-action-open::before {
+    background: var(--warning);
+}
+
+.public-main h2 {
+    margin: 28px 0 8px;
+    font-size: 1.1rem;
+}
+
+.public-main p {
+    line-height: 1.65;
+}
+
+.public-rail {
+    min-width: 0;
+}
+
+.auth-public-links {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    display: flex;
+    gap: 12px;
+    z-index: 5;
+}
+
+.auth-public-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.auth-house-slot {
+    width: min(420px, 100%);
+    margin-top: 16px;
+}
+
+@media (max-width: 860px) {
+    .public-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
 .top-ad-bar {
     flex: 0 0 90px;
     height: 90px;
@@ -1295,6 +1513,18 @@ body[data-cosmetic="neon"] .brand h1 {
     justify-content: center;
     padding: 24px;
     position: relative;
+}
+
+.auth-page.has-top-ad {
+    justify-content: flex-start;
+    flex-direction: column;
+    padding-top: 0;
+}
+
+.auth-page .top-ad-bar {
+    align-self: stretch;
+    width: 100%;
+    flex: 0 0 90px;
 }
 
 .auth-lang-toggle {

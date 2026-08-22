@@ -18,7 +18,8 @@ from engagement.service import EngagementService
 from billing.routes import billing_bp, init_billing_routes
 from engine.sim_registry import SimulationRegistry
 from engine.traffic_manager import TrafficManager
-from ads import public_ads_config
+from ads import ads_txt_body, public_ads_config
+from community import community_page_context
 from utils.i18n import current_lang, t
 from utils.variables import env_bool, env_str, get_variable, is_render
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
@@ -233,6 +234,12 @@ def _handle_action(payload: dict[str, Any], login_id: str | None = None) -> dict
         return traffic_manager.collisions.clear_accidents_now(
             int(road_id) if road_id is not None else None
         )
+    if action == "report_collisions":
+        pairs = payload.get("pairs") or []
+        if not isinstance(pairs, list):
+            return {"ok": False, "message": "충돌 보고 형식이 올바르지 않습니다.", "silent": True}
+        applied = traffic_manager.collisions.apply_client_reports(pairs)
+        return {"ok": True, "applied": applied, "silent": True}
     if action == "add_bus_stop":
         world = payload.get("world") or {}
         wx = world.get("x", payload.get("world_x"))
@@ -245,6 +252,47 @@ def _handle_action(payload: dict[str, Any], login_id: str | None = None) -> dict
         if login_id:
             player_update = engagement.record_action(login_id, "add_bus_stop")
         return {"ok": True, "message": f"정류장 #{stop['id']} 개설", "bus_stop": stop, "player": player_update}
+
+    if action == "add_building":
+        world = payload.get("world") or {}
+        wx = world.get("x", payload.get("world_x"))
+        wy = world.get("y", payload.get("world_y"))
+        building_type = str(payload.get("building_type") or "house_detached")
+        if wx is None or wy is None:
+            return {"ok": False, "message": "건물 위치가 필요합니다."}
+        if login_id:
+            player = engagement.get_public(login_id)
+            cap = int(player.get("building_slots") or 24)
+            if traffic_manager.buildings.count() >= cap:
+                return {
+                    "ok": False,
+                    "message": "건물 한도에 도달했습니다. PRO로 한도를 올리거나 상점에서 확장을 사세요.",
+                    "player": player,
+                }
+        building = traffic_manager.add_building_at(float(wx), float(wy), building_type)
+        if building is None:
+            return {"ok": False, "message": "도로 옆에 건물을 둘 수 없습니다. 시청은 도시당 1개입니다."}
+        if login_id:
+            player_update = engagement.record_action(login_id, "add_building")
+        return {
+            "ok": True,
+            "message": f"{building['label']} #{building['id']} 배치",
+            "building": building,
+            "player": player_update,
+        }
+
+    if action == "add_crosswalk":
+        world = payload.get("world") or {}
+        wx = world.get("x", payload.get("world_x"))
+        wy = world.get("y", payload.get("world_y"))
+        if wx is None or wy is None:
+            return {"ok": False, "message": "횡단보도 위치가 필요합니다."}
+        walk = traffic_manager.add_crosswalk_at(float(wx), float(wy))
+        if walk is None:
+            return {"ok": False, "message": "도로 위에 횡단보도를 배치할 수 없습니다."}
+        if login_id:
+            player_update = engagement.record_action(login_id, "add_crosswalk")
+        return {"ok": True, "message": f"횡단보도 #{walk['id']} 설치", "crosswalk": walk, "player": player_update}
 
     if action == "classify_cargo":
         vehicle_id = payload.get("vehicle_id")
@@ -319,6 +367,42 @@ def create_app() -> Flask:
     @app.route("/health")
     def health() -> Response:
         return jsonify({"ok": True, "service": "cityflow"})
+
+    @app.route("/ads.txt")
+    def ads_txt() -> Response:
+        body = ads_txt_body(public_ads_config().get("adsense_client") or "")
+        if not body:
+            return Response("Not Found\n", status=404, mimetype="text/plain")
+        return Response(body, mimetype="text/plain")
+
+    @app.route("/guide")
+    def public_guide() -> str:
+        return render_template(
+            "public.html",
+            page="guide",
+            title_key="meta.guide_title",
+            ads_config=public_ads_config(),
+        )
+
+    @app.route("/ranks")
+    def public_ranks() -> str:
+        return render_template(
+            "public.html",
+            page="ranks",
+            title_key="meta.ranks_title",
+            ads_config=public_ads_config(),
+        )
+
+    @app.route("/community")
+    def public_community() -> str:
+        return render_template(
+            "public.html",
+            page="community",
+            title_key="meta.community_title",
+            ads_config=public_ads_config(),
+            **community_page_context(),
+        )
+
     @app.route("/")
     @login_required
     def index() -> str:

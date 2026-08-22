@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
-from engine.vehicle_physics import detect_collision_pair, resolve_collision_impulse
+from engine.vehicle_physics import (
+    detect_collision_pair,
+    resolve_collision_impulse,
+    vehicle_collision_radius,
+)
 from utils.variables import get_variable
 
 if TYPE_CHECKING:
@@ -26,45 +31,97 @@ class CollisionSystem:
         if self._cooldown > 0:
             self._cooldown -= dt
         accidents: list[dict[str, Any]] = []
+        if not getattr(self.manager, "_client_physics", True):
+            accidents = self._scan_collisions()
+        self._tick_rescue(dt)
+        return accidents
+
+    def _scan_collisions(self) -> list[dict[str, Any]]:
+        """서버 폴백 충돌 스캔. 격자 이웃만 검사."""
+        accidents: list[dict[str, Any]] = []
         vehicles = [
             v for v in self.manager.vehicles if not v.finished and not getattr(v, "in_accident", False)
         ]
-        n = len(vehicles)
-        for i in range(n):
-            for j in range(i + 1, n):
-                a, b = vehicles[i], vehicles[j]
-                pair = (min(a.id, b.id), max(a.id, b.id))
-                if pair in self._handled_pairs:
+        spatial = getattr(self.manager, "_spatial", None)
+        radius = float(get_variable("vehicle", "avoidance_scan_radius", 55.0))
+        seen: set[tuple[int, int]] = set()
+        for a in vehicles:
+            neighbors = (
+                spatial.nearby(a.x, a.y, radius) if spatial is not None else vehicles
+            )
+            for b in neighbors:
+                if b.id <= a.id or b.finished or getattr(b, "in_accident", False):
                     continue
+                pair = (a.id, b.id)
+                if pair in seen or pair in self._handled_pairs:
+                    continue
+                seen.add(pair)
                 if not detect_collision_pair(a, b):
                     continue
-                physics = self._on_collision(a, b)
-                self._handled_pairs.add(pair)
-                record = {
-                    "vehicle_ids": [a.id, b.id],
-                    "road_id": a.road_id,
-                    "impulse": physics.get("impulse", 0.0),
-                    "mass_a": physics.get("mass_a"),
-                    "mass_b": physics.get("mass_b"),
-                    "status": "open",
-                    "rescue": None,
-                }
-                self.active_accidents.append(record)
-                if self._cooldown <= 0:
-                    event = self.manager.trigger_event(
-                        "accident",
-                        road_id=a.road_id,
-                        message=(
-                            f"차량 #{a.id}({a.mass_kg:.0f}kg)·#{b.id}({b.mass_kg:.0f}kg) "
-                            f"충돌 충격량 {physics.get('impulse', 0):.0f}"
-                        ),
-                    )
-                    record["event_id"] = event.id if event else None
-                    self._cooldown = float(get_variable("vehicle", "accident_event_cooldown", 4.0))
+                record = self._register_collision(a, b)
+                if record is not None:
                     accidents.append(record)
-
-        self._tick_rescue(dt)
         return accidents
+
+    def apply_client_reports(self, pairs: list[dict[str, Any]]) -> int:
+        """프론트 물리 엔진이 보낸 충돌 쌍을 검증 후 사고 처리."""
+        if not pairs:
+            return 0
+        by_id = {v.id: v for v in self.manager.vehicles if not v.finished}
+        applied = 0
+        limit = int(get_variable("physics", "client_report_max_pairs", 12))
+        for item in pairs[: max(1, limit)]:
+            if not isinstance(item, dict):
+                continue
+            try:
+                id_a = int(item.get("id_a", item.get("a")))
+                id_b = int(item.get("id_b", item.get("b")))
+            except (TypeError, ValueError):
+                continue
+            a = by_id.get(id_a)
+            b = by_id.get(id_b)
+            if a is None or b is None or a.id == b.id:
+                continue
+            if getattr(a, "in_accident", False) or getattr(b, "in_accident", False):
+                continue
+            pair = (min(a.id, b.id), max(a.id, b.id))
+            if pair in self._handled_pairs:
+                continue
+            dist = math.hypot(a.x - b.x, a.y - b.y)
+            max_sep = (vehicle_collision_radius(a) + vehicle_collision_radius(b)) * 4.0
+            if dist > max_sep:
+                continue
+            self._register_collision(a, b)
+            applied += 1
+        return applied
+
+    def _register_collision(self, a: Vehicle, b: Vehicle) -> dict[str, Any] | None:
+        physics = self._on_collision(a, b)
+        pair = (min(a.id, b.id), max(a.id, b.id))
+        self._handled_pairs.add(pair)
+        record = {
+            "vehicle_ids": [a.id, b.id],
+            "road_id": a.road_id,
+            "impulse": physics.get("impulse", 0.0),
+            "mass_a": physics.get("mass_a"),
+            "mass_b": physics.get("mass_b"),
+            "status": "open",
+            "rescue": None,
+        }
+        self.active_accidents.append(record)
+        if self._cooldown <= 0:
+            event = self.manager.trigger_event(
+                "accident",
+                road_id=a.road_id,
+                message=(
+                    f"차량 #{a.id}({a.mass_kg:.0f}kg)·#{b.id}({b.mass_kg:.0f}kg) "
+                    f"충돌 충격량 {physics.get('impulse', 0):.0f}"
+                ),
+            )
+            record["event_id"] = event.id if event else None
+            self._cooldown = float(get_variable("vehicle", "accident_event_cooldown", 4.0))
+            return record
+        return None
 
     def _on_collision(self, a: Vehicle, b: Vehicle) -> dict[str, Any]:
         physics = resolve_collision_impulse(a, b)

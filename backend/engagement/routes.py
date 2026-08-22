@@ -48,9 +48,9 @@ def engagement_me() -> Response:
 
 
 @engagement_bp.route("/api/engagement/leaderboard")
-@login_required
 def engagement_leaderboard() -> Response:
-    board = _svc().leaderboard(_login_id())
+    login_id = str(session.get("login_id") or "").strip().lower() or None
+    board = _svc().leaderboard(login_id)
     return jsonify({"ok": True, **board})
 
 

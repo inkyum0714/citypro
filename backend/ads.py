@@ -12,6 +12,8 @@ BLOCKED_AD_CATEGORIES = ("adult", "sexual", "dating", "pornography")
 MAX_AD_CONTENT_RATING = "PG"
 ADSENSE_PLACEHOLDER_CLIENT = "ca-pub-YOUR_CLIENT_ID"
 ADSENSE_PLACEHOLDER_SLOT = "YOUR_AD_SLOT_ID"
+CONSENT_STORAGE_KEY = "cityflow_ad_consent"
+ADS_TXT_CERT = "f08c47fec0942fa0"
 
 HOUSE_ADS: tuple[dict[str, Any], ...] = (
     {
@@ -43,14 +45,26 @@ def _adsense_slot() -> str:
     return env_str("ADSENSE_SLOT_ID") or str(get_variable("ads", "adsense_slot", "") or "")
 
 
+def _configured_slot(*candidates: str) -> str:
+    for raw in candidates:
+        text = str(raw or "").strip()
+        if _is_configured_adsense_value(text):
+            return text
+    return ""
+
+
 def _adsense_slots() -> list[str]:
     raw = get_variable("ads", "adsense_slots", []) or []
     values: list[str] = []
     if isinstance(raw, list):
         values.extend(str(item).strip() for item in raw if str(item).strip())
-    single = _adsense_slot()
-    if single:
-        values.append(single)
+    for extra in (
+        _adsense_slot(),
+        env_str("ADSENSE_SLOT_TOP") or str(get_variable("ads", "adsense_slot_top", "") or ""),
+        env_str("ADSENSE_SLOT_SIDEBAR") or str(get_variable("ads", "adsense_slot_sidebar", "") or ""),
+    ):
+        if extra:
+            values.append(extra)
     seen: set[str] = set()
     slots: list[str] = []
     for item in values:
@@ -65,6 +79,10 @@ def _adfit_unit() -> str:
     return env_str("ADFIT_UNIT_ID") or str(get_variable("ads", "adfit_unit", "") or "")
 
 
+def _adfit_unit_sidebar() -> str:
+    return env_str("ADFIT_UNIT_SIDEBAR") or str(get_variable("ads", "adfit_unit_sidebar", "") or "")
+
+
 def _blocked_set() -> set[str]:
     return {str(item).strip().lower() for item in BLOCKED_AD_CATEGORIES if str(item).strip()}
 
@@ -73,7 +91,7 @@ def is_adult_category(category: str) -> bool:
     return str(category or "").strip().lower() in _blocked_set()
 
 
-def filter_house_ads(ads: list[dict[str, Any]] | tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
+def filter_house_ads(ads: list[dict[str, Any]] | tuple[dict[str, Any], ...] ) -> list[dict[str, Any]]:
     """성인·데이팅 등 차단 카테고리가 하나라도 있으면 인벤토리에서 제거합니다."""
     blocked = _blocked_set()
     safe: list[dict[str, Any]] = []
@@ -103,15 +121,48 @@ def adsense_display_unit_html(client: str, slot: str) -> str:
     )
 
 
+def adsense_pub_id(client: str) -> str:
+    """ca-pub-123 → pub-123 (ads.txt 용)."""
+    text = str(client or "").strip()
+    if text.lower().startswith("ca-"):
+        return text[3:]
+    return text
+
+
+def ads_txt_body(client: str) -> str | None:
+    """승인된 게시자 ID가 있을 때만 ads.txt 본문."""
+    if not _is_configured_adsense_value(client):
+        return None
+    pub = adsense_pub_id(client)
+    if not pub:
+        return None
+    return f"google.com, {pub}, DIRECT, {ADS_TXT_CERT}\n"
+
+
 def public_ads_config() -> dict[str, Any]:
     """프론트에 내려줄 광고 설정. 퍼블리셔 키가 없으면 가족 안심 하우스 광고."""
     enabled = bool(get_variable("ads", "enabled", True))
     client_raw = _adsense_client()
     slots = _adsense_slots()
     client = client_raw if _is_configured_adsense_value(client_raw) else ""
-    slot = slots[0] if slots else ""
-    adfit = _adfit_unit()
-    if client and slots:
+    fallback_slot = slots[0] if slots else ""
+    slot_top = _configured_slot(
+        env_str("ADSENSE_SLOT_TOP"),
+        str(get_variable("ads", "adsense_slot_top", "") or ""),
+        fallback_slot,
+    )
+    slot_sidebar = _configured_slot(
+        env_str("ADSENSE_SLOT_SIDEBAR"),
+        str(get_variable("ads", "adsense_slot_sidebar", "") or ""),
+        fallback_slot,
+    )
+    adfit = _adfit_unit() if _is_configured_adsense_value(_adfit_unit()) else ""
+    adfit_sidebar = (
+        _adfit_unit_sidebar() if _is_configured_adsense_value(_adfit_unit_sidebar()) else ""
+    )
+    if client and (slot_top or slot_sidebar) and adfit:
+        provider = "hybrid"
+    elif client and (slot_top or slot_sidebar):
         provider = "adsense"
     elif adfit:
         provider = "adfit"
@@ -120,10 +171,12 @@ def public_ads_config() -> dict[str, Any]:
     rating = str(get_variable("ads", "max_ad_content_rating", MAX_AD_CONTENT_RATING) or MAX_AD_CONTENT_RATING)
     if rating.upper() not in ("G", "PG"):
         rating = MAX_AD_CONTENT_RATING
+    auto_ads = bool(get_variable("ads", "auto_ads", True))
     return {
         "enabled": enabled,
         "provider": provider,
-        "format": "card",
+        "format": "hybrid",
+        "layout": "top_network_sidebar_network_card_house",
         "exclude_adult": True,
         "blocked_categories": list(BLOCKED_AD_CATEGORIES),
         "max_ad_content_rating": rating.upper(),
@@ -133,12 +186,31 @@ def public_ads_config() -> dict[str, Any]:
         "tag_for_under_age_of_consent": bool(
             get_variable("ads", "tag_for_under_age_of_consent", False)
         ),
+        "consent_storage_key": CONSENT_STORAGE_KEY,
+        "consent_default": "npa",
+        "auto_ads": auto_ads,
+        "auto_ads_public_only": True,
+        "auto_ads_vignette": False,
+        "auto_ads_anchor": True,
+        "korean_adfit_top": True,
         "adsense_client": client,
-        "adsense_slot": slot,
+        "adsense_slot": slot_sidebar or slot_top,
+        "adsense_slot_top": slot_top,
+        "adsense_slot_sidebar": slot_sidebar,
         "adsense_slots": slots,
+        "placements": {
+            "top": {"adsense_slot": slot_top, "adfit_unit": adfit, "house_on_empty": True},
+            "sidebar": {
+                "adsense_slot": slot_sidebar,
+                "adfit_unit": adfit_sidebar,
+                "house_on_empty": True,
+            },
+            "card": {"adsense_slot": "", "adfit_unit": "", "house_on_empty": True},
+        },
         "placeholder_client": ADSENSE_PLACEHOLDER_CLIENT,
         "placeholder_slot": ADSENSE_PLACEHOLDER_SLOT,
         "adfit_unit": adfit,
+        "adfit_unit_sidebar": adfit_sidebar,
         "house_ads": filter_house_ads(HOUSE_ADS),
         "billing_enabled": toss_configured(),
         "checkout_plan": "pro",

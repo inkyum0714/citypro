@@ -18,6 +18,8 @@ DEFAULT_POINTS: dict[str, int] = {
     "golden_flow_seconds": 1,
     "roads_built": 6,
     "bus_stops_built": 10,
+    "buildings_built": 8,
+    "crosswalks_built": 7,
     "vehicles_spawned": 1,
     "events_triggered": 2,
     "stages_cleared": 50,

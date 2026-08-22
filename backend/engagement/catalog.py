@@ -68,6 +68,24 @@ def daily_quest_templates() -> list[dict[str, Any]]:
             "reward_coins": 50,
             "reward_xp": 30,
         },
+        {
+            "id": "build_city",
+            "label": "도시 건설",
+            "description": "주택·공공·상업 건물 3채 배치",
+            "target": 3,
+            "metric": "buildings_built",
+            "reward_coins": 50,
+            "reward_xp": 35,
+        },
+        {
+            "id": "crosswalks",
+            "label": "횡단보도",
+            "description": "횡단보도 2곳 설치",
+            "target": 2,
+            "metric": "crosswalks_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+        },
     ]
 
 
@@ -107,6 +125,22 @@ def shop_items() -> list[dict[str, Any]]:
             "type": "save_slot",
             "slots_added": 1,
         },
+        {
+            "id": "city_expansion",
+            "name": "도시 확장권 +20",
+            "description": "건물 한도 영구 +20 (미니 모터웨이 업그레이드형)",
+            "price_coins": 180,
+            "type": "building_slot",
+            "slots_added": 20,
+        },
+        {
+            "id": "cosmetic_night",
+            "name": "야간 도시 스킨",
+            "description": "건물 창문이 밤에 더 밝게 보입니다",
+            "price_coins": 140,
+            "type": "cosmetic",
+            "cosmetic_id": "night",
+        },
     ]
 
 
@@ -129,11 +163,13 @@ def pro_plans() -> list[dict[str, Any]]:
             "price_usd": 1,
             "days": 30,
             "save_slots": 5,
+            "building_slots": 80,
             "xp_multiplier": 1.25,
             "daily_coin_multiplier": 2,
             "benefits": [
                 "광고 제거",
                 "도시 저장 5슬롯",
+                "건물 한도 80",
                 "VIP 이벤트 · CSV 내보내기",
                 "일일 코인 2배 · XP 1.25배",
             ],
@@ -144,11 +180,13 @@ def pro_plans() -> list[dict[str, Any]]:
             "price_usd": 2,
             "days": 30,
             "save_slots": 10,
+            "building_slots": 160,
             "xp_multiplier": 1.5,
             "daily_coin_multiplier": 2,
             "benefits": [
                 "PRO 모든 혜택",
                 "도시 저장 10슬롯",
+                "건물 한도 160",
                 "XP 1.5배",
             ],
         },
@@ -158,11 +196,13 @@ def pro_plans() -> list[dict[str, Any]]:
             "price_usd": 5,
             "days": 30,
             "save_slots": 20,
+            "building_slots": -1,
             "xp_multiplier": 2.0,
             "daily_coin_multiplier": 3,
             "benefits": [
                 "PRO+ 모든 혜택",
                 "도시 저장 20슬롯",
+                "건물 무제한 (크리에이티브)",
                 "일일 코인 3배 · XP 2배",
             ],
         },
@@ -202,4 +242,7 @@ def achievements_catalog() -> list[dict[str, Any]]:
         {"id": "golden_keeper", "label": "골든 키퍼", "metric": "golden_flow_seconds", "target": 300, "reward_coins": 120},
         {"id": "rescue_hero", "label": "구조 영웅", "metric": "accidents_cleared", "target": 10, "reward_coins": 90},
         {"id": "stage_clearer", "label": "스테이지 클리어", "metric": "stages_cleared", "target": 2, "reward_coins": 150},
+        {"id": "first_house", "label": "첫 입주", "metric": "buildings_built", "target": 1, "reward_coins": 25},
+        {"id": "city_mayor", "label": "시장", "metric": "buildings_built", "target": 12, "reward_coins": 120},
+        {"id": "walker_safe", "label": "보행 안전", "metric": "crosswalks_built", "target": 4, "reward_coins": 70},
     ]

@@ -8,6 +8,7 @@ from typing import Any
 from engine.collision_system import CollisionSystem
 from engine.analytics import AnalyticsCollector
 from engine.content_systems import BusStopSystem, CargoSystem, GoldenHourTracker
+from engine.city_systems import BuildingSystem, CrosswalkSystem, building_catalog
 from engine.events import EventManager, SimulationEvent
 from engine.lane_controller import LaneController
 from engine.road_network import RoadNetwork
@@ -41,10 +42,11 @@ class TrafficManager:
         self.signals = SignalController()
         self.router = RoutingService(self)
         self.analytics = AnalyticsCollector()
-        self._spatial = VehicleSpatialIndex()
         self._segments_dirty = True
         self.collisions = CollisionSystem(self)
         self.bus_stops = BusStopSystem(self)
+        self.buildings = BuildingSystem(self)
+        self.crosswalks = CrosswalkSystem(self)
         self.cargo = CargoSystem(self)
         self.golden_hour = GoldenHourTracker()
         self.accidents_cleared_total = 0
@@ -52,7 +54,10 @@ class TrafficManager:
         self.stage_progress: dict[str, float] = {}
         self.frame_metrics: dict[str, float] = {}
         self._network_dirty = True
+        self._network_rev = 1
+        self._tick_include_network = True
         self._cache_runtime_flags()
+        self._spatial = VehicleSpatialIndex(float(self._physics_payload.get("cell_size", 64.0)))
 
     def _cache_runtime_flags(self) -> None:
         self._use_signals = bool(get_variable("phase4", "use_traffic_signals", True))
@@ -69,6 +74,21 @@ class TrafficManager:
         )
         self._emergency_spawn_p = float(get_variable("vehicle", "emergency_spawn_probability", 0.08))
         self._default_dt = float(get_variable("traffic_manager", "default_dt", 0.033))
+        self._client_physics = bool(get_variable("physics", "client_physics", True))
+        self._avoidance_radius = float(get_variable("vehicle", "avoidance_scan_radius", 55.0))
+        self._physics_payload = {
+            "client_physics": self._client_physics,
+            "collision_radius_scale": float(get_variable("vehicle", "collision_radius_scale", 0.55)),
+            "collision_min_closing_speed": float(get_variable("vehicle", "collision_min_closing_speed", 2.0)),
+            "collision_velocity_damp": float(get_variable("vehicle", "collision_velocity_damp", 0.35)),
+            "collision_restitution": float(get_variable("vehicle", "collision_restitution", 0.25)),
+            "avoidance_scan_radius": self._avoidance_radius,
+            "cell_size": float(get_variable("physics", "spatial_cell_size", 64.0)),
+            "max_pairs_per_frame": int(get_variable("physics", "client_max_pairs_per_frame", 80)),
+            "settle_iterations": int(get_variable("physics", "client_settle_iterations", 3)),
+            "road_snap": True,
+            "lateral_friction": 0.72,
+        }
 
     def _apply_avoidance(
         self,
@@ -79,8 +99,13 @@ class TrafficManager:
     ) -> tuple[float, float | None, float | None]:
         if not self._use_avoidance:
             return gap, lead_speed, lead_length
-        active = [v for v in self.vehicles if not v.finished and not getattr(v, "in_accident", False)]
-        return avoidance_constraints(vehicle, active, gap, lead_speed, lead_length)
+        nearby = self._spatial.nearby(vehicle.x, vehicle.y, self._avoidance_radius)
+        return avoidance_constraints(vehicle, nearby, gap, lead_speed, lead_length)
+
+    def _mark_network_changed(self) -> None:
+        self._network_dirty = True
+        self._network_rev += 1
+        self._tick_include_network = True
 
     def _sync_network_systems(self) -> None:
         if not self._network_dirty:
@@ -168,7 +193,7 @@ class TrafficManager:
         for remap in self.road_network.last_remaps:
             self._remap_vehicles_after_split(remap)
         self._mark_segments_dirty()
-        self._network_dirty = True
+        self._mark_network_changed()
         self._sync_network_systems()
         self.router.reroute_network_changed()
         return edge
@@ -293,7 +318,7 @@ class TrafficManager:
             light = self.signals.get_light(vehicle.exit_node_id)
             if light is not None and not ignore:
                 stop_dist = self.router.distance_to_stop_line(vehicle)
-                if light.must_stop_before_line() and stop_dist > 0.5 and stop_dist < gap:
+                if light.should_stop(stop_dist, vehicle.current_speed) and stop_dist > 0.5 and stop_dist < gap:
                     vehicle.waiting_at_signal = True
                     gap, lead_speed, lead_length = stop_dist, 0.0, self._idm_default_lead_length
                 else:
@@ -302,6 +327,11 @@ class TrafficManager:
                 vehicle.waiting_at_signal = False
         else:
             vehicle.waiting_at_signal = False
+
+        yield_dist = self.crosswalks.yield_distance(vehicle)
+        if yield_dist is not None and yield_dist > 0.5 and yield_dist < gap:
+            vehicle.waiting_at_signal = True
+            gap, lead_speed, lead_length = yield_dist, 0.0, self._idm_default_lead_length
 
         return self._apply_avoidance(vehicle, gap, lead_speed, lead_length)
 
@@ -345,9 +375,12 @@ class TrafficManager:
         self._sync_network_systems()
         approach = self._approach_counts_for_signals()
         self.signals.tick(dt, approach_counts=approach)
+        self.crosswalks.tick(dt)
         self.event_manager.tick(dt, self.road_network.roads)
 
+        housing = self.buildings.trip_demand()
         spawn_chance = self.spawn_rate * self.event_manager.get_spawn_multiplier()
+        spawn_chance *= 1.0 + min(2.4, housing * 0.08)
         if self.auto_spawn_enabled and random.random() < spawn_chance:
             boosted_type = None
             if random.random() < self._emergency_spawn_p:
@@ -385,6 +418,7 @@ class TrafficManager:
             vehicle.refresh_world_position()
 
         self._handle_edge_transitions()
+        self._spatial.rebuild(self.vehicles)
         cleared_before = self.accidents_cleared_total
         self.collisions.tick(dt)
         self.collisions.clear_stale_pairs()
@@ -434,6 +468,18 @@ class TrafficManager:
             self._bump_stage("bus_stops_built", 1)
         return stop
 
+    def add_building_at(self, x: float, y: float, building_type: str) -> dict[str, Any] | None:
+        building = self.buildings.add_at_world(x, y, building_type)
+        if building:
+            self._bump_stage("buildings_built", 1)
+        return building
+
+    def add_crosswalk_at(self, x: float, y: float) -> dict[str, Any] | None:
+        walk = self.crosswalks.add_at_world(x, y)
+        if walk:
+            self._bump_stage("crosswalks_built", 1)
+        return walk
+
     def classify_cargo(self, vehicle_id: int, cargo_type: str) -> dict[str, Any]:
         result = self.cargo.classify(vehicle_id, cargo_type)
         if result.get("ok"):
@@ -450,7 +496,7 @@ class TrafficManager:
         self.stage_id = str(stage["id"])
         self.stage_progress = {g["metric"]: 0.0 for g in stage.get("goals") or []}
         self.auto_spawn_enabled = True
-        self._network_dirty = True
+        self._mark_network_changed()
         self._mark_segments_dirty()
         self._sync_network_systems()
         self.router.reroute_network_changed()
@@ -465,6 +511,8 @@ class TrafficManager:
             "spawn_rate": self.spawn_rate,
             "auto_spawn_enabled": self.auto_spawn_enabled,
             "bus_stops": self.bus_stops.export(),
+            "buildings": self.buildings.export(),
+            "crosswalks": self.crosswalks.export(),
         }
 
     def load_city_snapshot(self, snapshot: dict[str, Any]) -> None:
@@ -476,7 +524,9 @@ class TrafficManager:
         self.spawn_rate = float(snapshot.get("spawn_rate", self.spawn_rate))
         self.auto_spawn_enabled = bool(snapshot.get("auto_spawn_enabled", self.auto_spawn_enabled))
         self.bus_stops.load(snapshot.get("bus_stops"))
-        self._network_dirty = True
+        self.buildings.load(snapshot.get("buildings"))
+        self.crosswalks.load(snapshot.get("crosswalks"))
+        self._mark_network_changed()
         self._mark_segments_dirty()
         self.router.reroute_network_changed()
 
@@ -498,10 +548,11 @@ class TrafficManager:
         self.signals = SignalController()
         self.router = RoutingService(self)
         self.analytics = AnalyticsCollector()
-        self._spatial = VehicleSpatialIndex()
         self._segments_dirty = True
         self.collisions = CollisionSystem(self)
         self.bus_stops = BusStopSystem(self)
+        self.buildings = BuildingSystem(self)
+        self.crosswalks = CrosswalkSystem(self)
         self.cargo = CargoSystem(self)
         self.golden_hour = GoldenHourTracker()
         self.accidents_cleared_total = 0
@@ -509,7 +560,10 @@ class TrafficManager:
         self.stage_progress = {}
         self.frame_metrics = {}
         self._network_dirty = True
+        self._network_rev += 1
+        self._tick_include_network = True
         self._cache_runtime_flags()
+        self._spatial = VehicleSpatialIndex(float(self._physics_payload.get("cell_size", 64.0)))
         self.analytics.reset()
 
     def export_analytics_csv(self) -> str:
@@ -536,15 +590,16 @@ class TrafficManager:
             full: True면 카탈로그·분석 시계열 포함. False면 틱 전송용 슬림 페이로드.
         """
         events = self.event_manager.to_dict()
-        network = self.road_network.to_dict()
         analytics = self.analytics.to_dict()
+        include_network = full or self._tick_include_network
         payload: dict[str, Any] = {
             "snapshot": "full" if full else "tick",
-            "nodes": network["nodes"],
-            "roads": network["roads"],
+            "network_rev": self._network_rev,
             "traffic_lights": self.signals.to_dict(),
             "vehicles": [vehicle.to_dict(slim=not full) for vehicle in self.vehicles],
             "bus_stops": self.bus_stops.to_dict(),
+            "buildings": self.buildings.to_dict(),
+            "crosswalks": self.crosswalks.to_dict(),
             "golden_hour": self.golden_hour.to_dict(),
             "stage": {"id": self.stage_id, "progress": dict(self.stage_progress)},
             "events": events["active"],
@@ -565,6 +620,8 @@ class TrafficManager:
                 "open_accidents": self.collisions.open_accident_count(),
                 "accidents_cleared": self.accidents_cleared_total,
                 "bus_stops": len(self.bus_stops.stops),
+                "buildings": self.buildings.count(),
+                "crosswalks": len(self.crosswalks.crosswalks),
                 "cargo_classified": self.cargo.classified_count,
                 "congestion_level": round(self._congestion_level(), 2),
                 "road_count": len(self.road_network.roads),
@@ -576,10 +633,19 @@ class TrafficManager:
                 "drive_model": "idm+mobil" if self._use_idm and self._use_mobil else "legacy",
                 "routing_enabled": self._use_routing,
                 "adaptive_signals": self._adaptive_signals,
+                "client_physics": self._client_physics,
             },
         }
+        if include_network:
+            network = self.road_network.to_dict()
+            payload["nodes"] = network["nodes"]
+            payload["roads"] = network["roads"]
+            if not full:
+                self._tick_include_network = False
         if full:
+            payload["physics"] = dict(self._physics_payload)
             payload["cargo_catalog"] = self.cargo.catalog()
+            payload["building_catalog"] = building_catalog()
             payload["event_catalog"] = events["catalog"]
             payload["rescue_catalog"] = events.get("rescue_catalog", [])
         return payload

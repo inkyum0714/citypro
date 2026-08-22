@@ -36,34 +36,22 @@ window.uiBridge = {
 
     applySimulationState(state) {
         if (!state) return;
-        const prev = this._mergedState;
-        if (prev && state.snapshot === 'tick') {
-            state = {
-                ...prev,
-                ...state,
-                event_catalog: state.event_catalog || prev.event_catalog,
-                rescue_catalog: state.rescue_catalog || prev.rescue_catalog,
-                cargo_catalog: state.cargo_catalog || prev.cargo_catalog,
-                analytics: {
-                    ...(prev.analytics || {}),
-                    ...(state.analytics || {}),
-                    series: state.analytics?.series || prev.analytics?.series || [],
-                },
-                player: state.player || prev.player,
-            };
-        }
-        this._mergedState = state;
+        window.clientSim?.ingest(state);
+        const merged = window.clientSim?.getState?.() || state;
+        this._mergedState = merged;
         try {
-            window.canvasRenderer?.render(state);
-            window.uiController?.setPreviewState(state);
-            this.updateDashboard(state);
-            this.updateEvents(state);
-            window.uiController?.updateAccidentStatus?.(state);
-            window.analyticsPanel?.update(state);
-            window.engagementPanel?.update(state);
+            if (!window.clientSim) {
+                window.canvasRenderer?.render(merged);
+            }
+            window.uiController?.setPreviewState(merged);
+            this.updateDashboard(merged);
+            this.updateEvents(merged);
+            window.uiController?.updateAccidentStatus?.(merged);
+            window.analyticsPanel?.update(merged);
+            window.engagementPanel?.update(merged);
 
-            if (state.event_catalog && !window.uiController?.catalogRendered) {
-                window.uiController.renderEventButtons(state.event_catalog);
+            if (merged.event_catalog && !window.uiController?.catalogRendered) {
+                window.uiController.renderEventButtons(merged.event_catalog);
                 window.uiController.catalogRendered = true;
             }
         } catch (err) {
@@ -172,7 +160,7 @@ const connectSimulationSocket = () => {
             window.uiBridge.applySimulationState(payload.data);
         }
 
-        if (payload.type === 'action_result' && payload.data?.message) {
+        if (payload.type === 'action_result' && payload.data?.message && !payload.data.silent) {
             const severity = payload.data.ok ? 'info' : 'warning';
             window.uiBridge.showToast(payload.data.message, severity);
             if (payload.data.player) {

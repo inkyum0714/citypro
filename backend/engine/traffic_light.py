@@ -21,7 +21,8 @@ class TrafficLight:
         return {
             "green": float(get_variable("phase4", "signal_green_seconds", 14.0)),
             "yellow": float(get_variable("phase4", "signal_yellow_seconds", 3.0)),
-            "red": float(get_variable("phase4", "signal_red_seconds", 14.0)),
+            "red": float(get_variable("phase4", "signal_red_seconds", 10.0)),
+            "walk": float(get_variable("phase4", "signal_walk_seconds", 8.0)),
         }
 
     def tick(self, dt: float) -> None:
@@ -36,6 +37,8 @@ class TrafficLight:
             self.state = "yellow"
         elif self.state == "yellow":
             self.state = "red"
+        elif self.state == "red":
+            self.state = "walk"
         else:
             self.state = "green"
 
@@ -44,8 +47,18 @@ class TrafficLight:
         return self.state == "green"
 
     def must_stop_before_line(self) -> bool:
-        """정지선에서 멈춰야 하는 상태."""
-        return self.state in ("red", "yellow")
+        """적색·보행 신호에서는 반드시 정지."""
+        return self.state in ("red", "walk")
+
+    def should_stop(self, stop_dist: float, speed: float) -> bool:
+        """도로교통법: 적색·보행은 정지, 황색은 안전하게 멈출 수 있으면 정지."""
+        if self.must_stop_before_line():
+            return True
+        if self.state != "yellow" or stop_dist <= 0.5:
+            return False
+        from engine.vehicle import stopping_distance
+
+        return stop_dist >= max(4.0, stopping_distance(speed) * 0.85)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -53,6 +66,7 @@ class TrafficLight:
             "x": round(self.x, 2),
             "y": round(self.y, 2),
             "state": self.state,
+            "pedestrian": self.state == "walk",
         }
 
 

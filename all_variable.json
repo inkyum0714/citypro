@@ -1,11 +1,16 @@
 {
-  "physics": {
-    "friction_coefficient_asphalt_highway": 0.72,
-    "gravitational_deceleration_scale": 25.0,
-    "max_acceleration": 12.0,
-    "min_follow_gap": 8.0,
-    "reaction_time_buffer_factor": 0.15
-  },
+    "physics": {
+        "friction_coefficient_asphalt_highway": 0.72,
+        "gravitational_deceleration_scale": 25.0,
+        "max_acceleration": 12.0,
+        "min_follow_gap": 8.0,
+        "reaction_time_buffer_factor": 0.15,
+        "client_physics": true,
+        "spatial_cell_size": 64.0,
+        "client_max_pairs_per_frame": 80,
+        "client_settle_iterations": 3,
+        "client_report_max_pairs": 16
+    },
   "vehicle": {
     "emergency_spawn_probability": 0.08,
     "lead_gap_no_obstacle": 999.0,
@@ -73,7 +78,7 @@
   },
   "main": {
     "simulation_step_sleep_seconds": 0.033,
-    "broadcast_interval_seconds": 0.1,
+    "broadcast_interval_seconds": 0.16,
     "spawn_rate_min": 0.02,
     "spawn_rate_max": 0.5,
     "flask_debug": true,
@@ -119,7 +124,10 @@
     "signal_min_edges_at_node": 2,
     "signal_green_seconds": 14.0,
     "signal_yellow_seconds": 3.0,
-    "signal_red_seconds": 14.0,
+    "signal_red_seconds": 10.0,
+    "signal_walk_seconds": 8.0,
+    "crosswalk_walk_seconds": 6.0,
+    "crosswalk_idle_seconds": 11.0,
     "stop_line_offset_from_exit": 22.0,
     "edge_end_is_destination": true
   },
@@ -165,7 +173,8 @@
     "vip_event_coin_cost": 60,
     "allow_demo_pro_activation": true,
     "demo_pro_days": 7,
-    "pro_required_for_csv_export": true
+    "pro_required_for_csv_export": true,
+    "free_building_slots": 24
   },
   "ranked": {
     "mode": "ranked",
@@ -178,6 +187,8 @@
       "golden_flow_seconds": 1,
       "roads_built": 6,
       "bus_stops_built": 10,
+      "buildings_built": 8,
+      "crosswalks_built": 7,
       "vehicles_spawned": 1,
       "events_triggered": 2,
       "stages_cleared": 50
@@ -204,9 +215,13 @@
         "max_ad_content_rating": "PG",
         "tag_for_child_directed_treatment": false,
         "tag_for_under_age_of_consent": false,
+        "auto_ads": true,
         "adsense_client": "ca-pub-YOUR_CLIENT_ID",
         "adsense_slot": "YOUR_AD_SLOT_ID",
+        "adsense_slot_top": "YOUR_AD_SLOT_ID",
+        "adsense_slot_sidebar": "YOUR_AD_SLOT_ID",
         "adsense_slots": ["YOUR_AD_SLOT_ID"],
-        "adfit_unit": ""
+        "adfit_unit": "",
+        "adfit_unit_sidebar": ""
     }
 }

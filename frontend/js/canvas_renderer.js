@@ -2,6 +2,25 @@ window.canvasRenderer = {
     lastState: null,
     animationPhase: 0,
     _didInitialFit: false,
+    _view: null,
+    _quality: 'high',
+    _junctionCache: { rev: null, nodes: [] },
+
+    _inView(x, y, pad = 24) {
+        const view = this._view;
+        if (!view) return true;
+        return x >= view.minX - pad && x <= view.maxX + pad && y >= view.minY - pad && y <= view.maxY + pad;
+    },
+
+    _segmentVisible(x0, y0, x1, y1) {
+        const view = this._view;
+        if (!view) return true;
+        const minX = Math.min(x0, x1);
+        const maxX = Math.max(x0, x1);
+        const minY = Math.min(y0, y1);
+        const maxY = Math.max(y0, y1);
+        return maxX >= view.minX && minX <= view.maxX && maxY >= view.minY && minY <= view.maxY;
+    },
 
     resize() {
         const canvas = document.getElementById('simulationCanvas');
@@ -24,14 +43,17 @@ window.canvasRenderer = {
         if (canvas.width < 2 || canvas.height < 2) {
             this.resize();
         }
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false });
         if (!ctx) return;
         const camera = window.simulationCamera;
         this.animationPhase += 0.04;
+        this._quality = state.client_quality || window.clientSim?.getQuality?.() || 'high';
+        this._view = camera.worldBounds ? camera.worldBounds(canvas) : null;
 
         if (!this._didInitialFit && (state.roads?.length || 0) > 0) {
             camera.fitToState(state, canvas);
             this._didInitialFit = true;
+            this._view = camera.worldBounds ? camera.worldBounds(canvas) : this._view;
         }
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -40,23 +62,111 @@ window.canvasRenderer = {
 
         ctx.save();
         camera.applyTransform(ctx, canvas);
-        this._drawWorldGrid(ctx, canvas, camera);
+        if (this._quality !== 'low') {
+            this._drawWorldGrid(ctx, canvas, camera);
+        }
 
         const roads = state.roads || [];
         const nodes = state.nodes || [];
         const vehicles = state.vehicles || [];
         const events = state.events || [];
 
-        roads.forEach((road) => this._drawRoad(ctx, road));
-        this._drawNetworkNodes(ctx, nodes, roads);
-        (state.bus_stops || []).forEach((stop) => this._drawBusStop(ctx, stop));
-        (state.traffic_lights || []).forEach((light) => this._drawTrafficLight(ctx, light));
-        events.forEach((event) => this._drawEvent(ctx, roads, event));
-        vehicles.forEach((vehicle) => this._drawVehicle(ctx, vehicle, state.time_of_day));
+        for (let i = 0; i < roads.length; i += 1) {
+            const road = roads[i];
+            if (this._segmentVisible(road.start[0], road.start[1], road.end[0], road.end[1])) {
+                this._drawRoad(ctx, road);
+            }
+        }
+        this._drawNetworkNodes(ctx, nodes, roads, state.network_rev);
+        const buildings = state.buildings || [];
+        for (let i = 0; i < buildings.length; i += 1) {
+            if (this._inView(buildings[i].x, buildings[i].y, 40)) this._drawBuilding(ctx, buildings[i], state);
+        }
+        const walks = state.crosswalks || [];
+        for (let i = 0; i < walks.length; i += 1) {
+            if (this._inView(walks[i].x, walks[i].y, 28)) this._drawCrosswalk(ctx, walks[i]);
+        }
+        const stops = state.bus_stops || [];
+        for (let i = 0; i < stops.length; i += 1) {
+            if (this._inView(stops[i].x, stops[i].y, 20)) this._drawBusStop(ctx, stops[i]);
+        }
+        const lights = state.traffic_lights || [];
+        for (let i = 0; i < lights.length; i += 1) {
+            if (this._inView(lights[i].x, lights[i].y, 24)) this._drawTrafficLight(ctx, lights[i]);
+        }
+        for (let i = 0; i < events.length; i += 1) this._drawEvent(ctx, roads, events[i]);
+        const useGradient = this._quality === 'high';
+        for (let i = 0; i < vehicles.length; i += 1) {
+            const vehicle = vehicles[i];
+            if (this._inView(vehicle.x, vehicle.y, 40)) {
+                this._drawVehicle(ctx, vehicle, state.time_of_day, useGradient);
+            }
+        }
         ctx.restore();
 
         this._drawHud(ctx, canvas, camera);
         this._drawGoldenBanner(ctx, canvas, state);
+    },
+
+    _drawBuilding(ctx, building, state) {
+        const w = building.w || 24;
+        const d = building.d || 18;
+        const night = state?.time_of_day === 'night' || state?.player?.active_cosmetic === 'night';
+        ctx.save();
+        ctx.translate(building.x, building.y);
+        ctx.rotate(building.angle || 0);
+        ctx.fillStyle = building.fill || '#64748b';
+        ctx.strokeStyle = building.stroke || '#1e293b';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-w / 2, -d / 2, w, d, 2);
+        else ctx.rect(-w / 2, -d / 2, w, d);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = night ? '#fde68a' : 'rgba(226, 232, 240, 0.85)';
+        const cols = building.group === 'housing' && building.type === 'house_apt' ? 4 : 2;
+        const rows = building.type === 'house_apt' ? 3 : 1;
+        const gw = w / (cols + 1);
+        const gh = d / (rows + 2);
+        for (let r = 0; r < rows; r += 1) {
+            for (let c = 0; c < cols; c += 1) {
+                ctx.fillRect(-w / 2 + gw * (c + 0.65), -d / 2 + gh * (r + 0.7), Math.max(2.5, gw * 0.45), Math.max(2.2, gh * 0.55));
+            }
+        }
+        if (building.group === 'civic') {
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.moveTo(0, -d / 2 - 6);
+            ctx.lineTo(3, -d / 2);
+            ctx.lineTo(-3, -d / 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText((building.label || '').slice(0, 4), 0, 3);
+        ctx.restore();
+    },
+
+    _drawCrosswalk(ctx, walk) {
+        const width = Math.max(16, walk.width || 18);
+        ctx.save();
+        ctx.translate(walk.x, walk.y);
+        ctx.rotate(walk.angle || 0);
+        ctx.fillStyle = walk.pedestrian ? 'rgba(250, 250, 250, 0.95)' : 'rgba(226, 232, 240, 0.7)';
+        const stripes = 6;
+        const step = width / stripes;
+        for (let i = 0; i < stripes; i += 1) {
+            if (i % 2 === 0) ctx.fillRect(-10, -width / 2 + i * step, 20, step * 0.72);
+        }
+        if (walk.pedestrian) {
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.arc(0, -width / 2 - 6, 3.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     },
 
     _drawBusStop(ctx, stop) {
@@ -164,9 +274,15 @@ window.canvasRenderer = {
 
         ctx.save();
         if (weather === 'rain') {
+            const preset = window.CityFlowPhysics?.qualityPreset?.(this._quality) || { rain: 80 };
+            const count = preset.rain || 0;
+            if (!count) {
+                ctx.restore();
+                return;
+            }
             ctx.strokeStyle = 'rgba(147, 197, 253, 0.25)';
             ctx.lineWidth = 1;
-            for (let i = 0; i < 80; i += 1) {
+            for (let i = 0; i < count; i += 1) {
                 const x = (i * 97 + this.animationPhase * 120) % canvas.width;
                 const y = (i * 53 + this.animationPhase * 220) % canvas.height;
                 ctx.beginPath();
@@ -203,27 +319,24 @@ window.canvasRenderer = {
         ctx.lineWidth = width + 8;
         ctx.stroke();
 
-        const roadGradient = ctx.createLinearGradient(
-            road.start[0], road.start[1], road.end[0], road.end[1],
-        );
-        roadGradient.addColorStop(0, '#334155');
-        roadGradient.addColorStop(0.5, '#475569');
-        roadGradient.addColorStop(1, '#334155');
         const cosmetic = this.lastState?.player?.active_cosmetic;
-        if (cosmetic === 'neon') {
-            roadGradient.addColorStop(0, '#1e3a5f');
-            roadGradient.addColorStop(0.5, '#22d3ee');
-            roadGradient.addColorStop(1, '#1e3a5f');
-        } else if (cosmetic === 'sunset') {
-            roadGradient.addColorStop(0, '#78350f');
-            roadGradient.addColorStop(0.5, '#ea580c');
-            roadGradient.addColorStop(1, '#78350f');
+        let stroke = '#475569';
+        if (cosmetic === 'neon') stroke = '#22d3ee';
+        else if (cosmetic === 'sunset') stroke = '#ea580c';
+        else if (this._quality === 'high') {
+            const roadGradient = ctx.createLinearGradient(
+                road.start[0], road.start[1], road.end[0], road.end[1],
+            );
+            roadGradient.addColorStop(0, '#334155');
+            roadGradient.addColorStop(0.5, '#475569');
+            roadGradient.addColorStop(1, '#334155');
+            stroke = roadGradient;
         }
 
         ctx.beginPath();
         ctx.moveTo(road.start[0], road.start[1]);
         ctx.lineTo(road.end[0], road.end[1]);
-        ctx.strokeStyle = roadGradient;
+        ctx.strokeStyle = stroke;
         ctx.lineWidth = width;
         ctx.stroke();
 
@@ -269,8 +382,9 @@ window.canvasRenderer = {
             green: '#22c55e',
             yellow: '#eab308',
             red: '#ef4444',
+            walk: '#38bdf8',
         };
-        const fill = colors[light.state] || colors.red;
+        const fill = colors[light.state] || (light.pedestrian ? '#38bdf8' : colors.red);
         ctx.save();
         ctx.beginPath();
         ctx.arc(light.x, light.y - 16, 7, 0, Math.PI * 2);
@@ -283,18 +397,30 @@ window.canvasRenderer = {
         ctx.arc(light.x, light.y - 16, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = fill;
         ctx.shadowColor = fill;
-        ctx.shadowBlur = light.state === 'green' ? 10 : 4;
+        ctx.shadowBlur = (light.state === 'green' && this._quality === 'high') ? 10 : 0;
         ctx.fill();
         ctx.restore();
     },
 
-    _drawNetworkNodes(ctx, nodes, roads) {
+    _drawNetworkNodes(ctx, nodes, roads, networkRev) {
         if (nodes.length > 0) {
-            nodes.forEach((node) => {
-                const degree = roads.filter(
-                    (r) => r.start_node_id === node.id || r.end_node_id === node.id,
-                ).length;
-                if (degree < 2) return;
+            if (this._junctionCache.rev !== networkRev) {
+                const junctions = [];
+                for (let i = 0; i < nodes.length; i += 1) {
+                    const node = nodes[i];
+                    let degree = 0;
+                    for (let r = 0; r < roads.length; r += 1) {
+                        const road = roads[r];
+                        if (road.start_node_id === node.id || road.end_node_id === node.id) degree += 1;
+                    }
+                    if (degree >= 2) junctions.push(node);
+                }
+                this._junctionCache = { rev: networkRev, nodes: junctions };
+            }
+            const junctions = this._junctionCache.nodes;
+            for (let i = 0; i < junctions.length; i += 1) {
+                const node = junctions[i];
+                if (!this._inView(node.x, node.y, 16)) continue;
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, 10, 0, Math.PI * 2);
@@ -304,7 +430,7 @@ window.canvasRenderer = {
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.restore();
-            });
+            }
             return;
         }
         this._drawIntersections(ctx, roads);
@@ -378,7 +504,7 @@ window.canvasRenderer = {
         ctx.restore();
     },
 
-    _drawVehicle(ctx, vehicle, timeOfDay) {
+    _drawVehicle(ctx, vehicle, timeOfDay, useGradient = true) {
         const length = vehicle.length || 14;
         const width = vehicle.width || 8;
         const angle = vehicle.angle || 0;
@@ -390,10 +516,14 @@ window.canvasRenderer = {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
         ctx.fillRect(-length / 2 + 2, -width / 2 + 3, length, width);
 
-        const body = ctx.createLinearGradient(-length / 2, 0, length / 2, 0);
-        body.addColorStop(0, this._shadeColor(vehicle.color, -18));
-        body.addColorStop(1, vehicle.color || '#ffffff');
-        ctx.fillStyle = body;
+        if (useGradient) {
+            const body = ctx.createLinearGradient(-length / 2, 0, length / 2, 0);
+            body.addColorStop(0, this._shadeColor(vehicle.color, -18));
+            body.addColorStop(1, vehicle.color || '#ffffff');
+            ctx.fillStyle = body;
+        } else {
+            ctx.fillStyle = vehicle.color || '#ffffff';
+        }
         this._roundRect(ctx, -length / 2, -width / 2, length, width, 3);
         ctx.fill();
 

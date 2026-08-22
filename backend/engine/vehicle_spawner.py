@@ -33,7 +33,7 @@ class VehicleSpawner:
         roads = self.manager.road_network.roads
         if not roads:
             return None
-        weights = [self._edge_spawn_weight(r) for r in roads]
+        weights = [self._edge_spawn_weight(r) + self.manager.buildings.spawn_weight_bonus(r) for r in roads]
         return random.choices(roads, weights=weights, k=1)[0]
 
     def _lane_blocked_at_start(self, road_id: int, lane_index: int, vehicles: list[Vehicle]) -> bool:

@@ -429,6 +429,10 @@ class Vehicle:
             "in_accident": self.in_accident,
             "rescue_state": self.rescue_state,
             "emergency_flash": self.emergency_flash,
+            "vx": round(getattr(self, "vx", 0.0), 2),
+            "vy": round(getattr(self, "vy", 0.0), 2),
+            "space_occupancy": round(getattr(self, "space_occupancy", 1.0), 2),
+            "waiting_at_signal": bool(getattr(self, "waiting_at_signal", False)),
         }
         if slim:
             return payload
@@ -438,14 +442,11 @@ class Vehicle:
                 "acceleration": round(self.acceleration, 2),
                 "base_speed": round(self.base_speed, 1),
                 "max_speed": round(self.max_speed, 1),
-                "height": round(getattr(self, "height", 0.0), 1),
                 "volume": round(getattr(self, "volume", 0.0), 0),
-                "space_occupancy": round(getattr(self, "space_occupancy", 1.0), 2),
+                "height": round(getattr(self, "height", 0.0), 1),
                 "destination_node_id": self.destination_node_id,
                 "exit_node_id": self.exit_node_id,
                 "travel_forward": self.travel_forward,
-                "vx": round(getattr(self, "vx", 0.0), 2),
-                "vy": round(getattr(self, "vy", 0.0), 2),
                 "collision_partner_id": self.collision_partner_id,
                 "last_impulse": round(getattr(self, "last_impulse", 0.0), 1),
                 "drive_model": "idm" if get_variable("phase3", "use_idm", True) else "legacy",

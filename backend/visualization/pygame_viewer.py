@@ -63,8 +63,17 @@ class PygameViewer:
                         break
                     payload = json.loads(raw)
                     if payload.get("type") == "state":
+                        incoming = payload.get("data") or {}
                         with self.state_lock:
-                            self.state = payload.get("data") or {}
+                            prev = self.state
+                            if incoming.get("snapshot") == "tick":
+                                incoming = {
+                                    **prev,
+                                    **incoming,
+                                    "roads": incoming.get("roads") or prev.get("roads") or [],
+                                    "nodes": incoming.get("nodes") or prev.get("nodes") or [],
+                                }
+                            self.state = incoming
         except Exception:
             self.connected = False
 

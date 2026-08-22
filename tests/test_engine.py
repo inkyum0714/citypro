@@ -261,6 +261,36 @@ class Phase4Tests(unittest.TestCase):
         manager._sync_network_systems()
         self.assertGreaterEqual(len(manager.signals.lights), 1)
 
+    def test_spatial_nearby_excludes_far_vehicles(self):
+        from backend.engine.spatial_index import VehicleSpatialIndex
+
+        road = {"id": 1, "start": [0, 0], "end": [400, 0], "speed_limit": 50, "lanes": 1, "width": 18}
+        near = Vehicle(id=1, road=road, vehicle_type="car", progress=0.1)
+        far = Vehicle(id=2, road=road, vehicle_type="car", progress=0.9)
+        near.x, near.y = 10.0, 0.0
+        far.x, far.y = 380.0, 0.0
+        index = VehicleSpatialIndex(cell_size=64.0)
+        index.rebuild([near, far])
+        found = index.nearby(10.0, 0.0, 55.0)
+        ids = {v.id for v in found}
+        self.assertIn(1, ids)
+        self.assertNotIn(2, ids)
+
+    def test_slim_vehicle_includes_velocity(self):
+        road = {
+            "id": 1,
+            "start": [0, 0],
+            "end": [100, 0],
+            "speed_limit": 50,
+            "lanes": 1,
+            "width": 18,
+        }
+        vehicle = Vehicle(id=1, road=road, vehicle_type="car", speed=20)
+        payload = vehicle.to_dict(slim=True)
+        self.assertIn("vx", payload)
+        self.assertIn("vy", payload)
+        self.assertIn("space_occupancy", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

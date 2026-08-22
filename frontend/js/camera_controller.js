@@ -27,6 +27,17 @@ window.simulationCamera = {
         };
     },
 
+    worldBounds(canvas, pad = 48) {
+        const topLeft = this.screenToWorld(-pad, -pad, canvas);
+        const bottomRight = this.screenToWorld(canvas.width + pad, canvas.height + pad, canvas);
+        return {
+            minX: Math.min(topLeft.x, bottomRight.x),
+            maxX: Math.max(topLeft.x, bottomRight.x),
+            minY: Math.min(topLeft.y, bottomRight.y),
+            maxY: Math.max(topLeft.y, bottomRight.y),
+        };
+    },
+
     applyTransform(ctx, canvas) {
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.scale(this.zoom, this.zoom);
@@ -99,9 +110,6 @@ window.simulationCamera = {
                 const sy = event.clientY - rect.top;
                 const factor = event.deltaY > 0 ? 0.9 : 1.1;
                 this.zoomAt(sx, sy, canvas, factor);
-                if (window.canvasRenderer.lastState) {
-                    window.canvasRenderer.render(window.canvasRenderer.lastState);
-                }
             },
             { passive: false },
         );
@@ -128,9 +136,6 @@ window.simulationCamera = {
             const dy = sy - this.panStartScreen.y;
             this.x = this.panStartCamera.x - dx / this.zoom;
             this.y = this.panStartCamera.y - dy / this.zoom;
-            if (window.canvasRenderer.lastState) {
-                window.canvasRenderer.render(window.canvasRenderer.lastState);
-            }
         };
 
         const endPan = () => {

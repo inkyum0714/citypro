@@ -1,0 +1,19 @@
+<article class="community-comment" id="{{ comment.id }}">
+    <header class="community-meta">
+        <strong>{{ comment.author }}</strong>
+        <span>{{ comment.model }}</span>
+        <span>{{ comment.thread }} · {{ comment.id }}</span>
+        <span>{{ comment.created_utc }}</span>
+    </header>
+    <h2 data-i18n="{{ comment.topic_key }}">{{ comment.topic_key }}</h2>
+    <pre class="community-body">{{ comment.body }}</pre>
+    {% if comment.actions %}
+    <ul class="community-actions">
+        {% for action in comment.actions %}
+        <li class="community-action community-action-{{ action.status }}" data-i18n="{{ action.label_key }}">
+            {{ action.label_key }}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</article>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="rating" content="general">
+    <meta name="description" content="{{ t('public.meta_desc') }}">
+    <title data-i18n="{{ title_key }}">CityFlow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    {% include "_ad_head.html" %}
+</head>
+<body class="public-page">
+    {% include "_ad_consent.html" %}
+    <aside class="top-ad-bar" id="topAdBar">
+        <div class="top-ad-inner" id="topAdInner"></div>
+    </aside>
+    <header class="public-nav">
+        <a class="public-brand" href="/guide">CityFlow</a>
+        <nav>
+            <a href="/guide" data-i18n="public.nav_guide">플레이 가이드</a>
+            <a href="/ranks" data-i18n="public.nav_ranks">랭킹</a>
+            <a href="/community" data-i18n="public.nav_community">피드백</a>
+            <a href="/login" data-i18n="public.nav_play">플레이</a>
+        </nav>
+        <button class="btn btn-ghost btn-sm" type="button" data-lang-toggle>EN</button>
+    </header>
+    <div class="public-layout">
+        <article class="public-main">
+            {% if page == 'guide' %}
+            <h1 data-i18n="guide.h1">CityFlow 플레이 가이드</h1>
+            <p class="public-lead" data-i18n="guide.lead">도로는 서버가 연결하고, 차량의 가속·충돌 정리는 브라우저에서 계산합니다. 아래는 첫 도시부터 랭킹전까지의 운영 순서입니다.</p>
+            <h2 data-i18n="guide.s1">1. 도로를 잇기</h2>
+            <p data-i18n="guide.s1p">캔버스를 드래그해 도로를 놓습니다. 끝점이 가까우면 교차로로 합쳐지고, 가운데를 가로지르면 도로가 갈라집니다. 차선 수와 왕복 여부는 하단 도구에서 고릅니다.</p>
+            <h2 data-i18n="guide.s2">2. 흐름을 만들기</h2>
+            <p data-i18n="guide.s2p">자동 생성을 켜면 차량이 도로 시작에서 들어옵니다. 승용차·트럭·버스·긴급차는 질량과 점유 공간이 달라서, 트럭은 잘 안 서고 긴급차는 신호를 무시할 수 있습니다. 전방 간격은 IDM으로 맞춥니다.</p>
+            <h2 data-i18n="guide.s3">3. 사고와 횡단보도</h2>
+            <p data-i18n="guide.s3p">겹친 차량은 질량 비율로 튕깁니다. 횡단보도에 보행 신호가 켜지면 차가 양보합니다. 교차로는 녹색→황색→적색→보행 순이며, 황색에서는 멈출 수 있을 때만 정지합니다. 이번 버전 신호는 교차로(노드) 전체 공통입니다. 접근로별 위상은 아직 없습니다.</p>
+            <h2 data-i18n="guide.s4">4. 랭킹전과 PRO</h2>
+            <p data-i18n="guide.s4p">랭킹전 모드에서 완주·사고 정리·도로 건설이 점수가 됩니다. 무료 계정은 상단·사이드에 가족 안심 광고가 있고, PRO는 광고 없이 저장 슬롯과 CSV를 씁니다.</p>
+            <p><a class="btn btn-premium" href="/login" data-i18n="public.nav_play">플레이</a></p>
+            {% elif page == 'ranks' %}
+            <h1 data-i18n="ranks.h1">랭킹전 리더보드</h1>
+            <p class="public-lead" data-i18n="ranks.lead">시즌은 주 단위입니다. 완주, 사고 정리, 도로·정류장 건설이 점수로 쌓입니다.</p>
+            <ul class="rank-board-list rank-board-list-full" id="publicRankList">
+                <li class="event-empty" data-i18n="loading">불러오는 중…</li>
+            </ul>
+            <p><a class="btn btn-premium" href="/login" data-i18n="public.nav_play">플레이</a></p>
+            {% elif page == 'community' %}
+            <h1 data-i18n="community.h1">1F916 스레드 피드백</h1>
+            <p class="public-lead" data-i18n="community.lead">CityFlow 출시 글(#1300) 댓글을 카드로 고정했습니다. 본문은 원문(영어)이며, 아래 항목은 반영·유지·대기입니다.</p>
+            <p class="community-sources">
+                <a href="{{ square_url }}" rel="noopener">1f916.ai</a>
+                <a href="{{ reader_url }}" rel="noopener">1f916.observer</a>
+                <a href="{{ citizen_url }}" rel="noopener">cityflow-sim</a>
+                <span>{{ thread_ref }}</span>
+            </p>
+            <div class="community-thread">
+                {% for comment in comments %}
+                {% include "_community_comment.html" %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </article>
+        <aside class="public-rail">
+            <div class="ad-container" id="sidebarDisplayAd">
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="ca-pub-YOUR_CLIENT_ID"
+                     data-ad-slot="YOUR_AD_SLOT_ID"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+            </div>
+            <div class="ad-slot ad-card-slot" id="adSlot"></div>
+        </aside>
+    </div>
+    <script>window.CITYFLOW_ADS = {{ (ads_config or {}) | tojson }};</script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/ads.js"></script>
+    <script>
+        window.cityflowAds?.apply({ show_ads: true });
+        {% if page == 'ranks' %}
+        (async () => {
+            const list = document.getElementById('publicRankList');
+            try {
+                const res = await fetch('/api/engagement/leaderboard');
+                const data = await res.json();
+                const rows = data.leaderboard || [];
+                if (!rows.length) {
+                    list.innerHTML = `<li class="event-empty">${window.t('ranks.empty')}</li>`;
+                    return;
+                }
+                list.innerHTML = rows.map((row) => `
+                    <li>
+                        <strong>${row.rank}</strong>
+                        ${row.login_id}
+                        · ${row.tier}
+                        · ${row.score}
+                    </li>
+                `).join('');
+            } catch {
+                list.innerHTML = `<li class="event-empty">${window.t('ranks.empty')}</li>`;
+            }
+        })();
+        {% endif %}
+    </script>
+</body>
+</html>

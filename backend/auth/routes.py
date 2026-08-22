@@ -8,6 +8,7 @@ from typing import Any, Callable
 from authlib.integrations.flask_client import OAuth
 from flask import Blueprint, Response, jsonify, redirect, render_template, request, session, url_for
 
+from ads import public_ads_config
 from auth.user_store import create_local_user, upsert_google_user, verify_local_user
 from engagement.hooks import on_user_login
 from utils.i18n import t
@@ -70,6 +71,7 @@ def login_page() -> str:
     return render_template(
         "login.html",
         google_enabled=_google_enabled(),
+        ads_config=public_ads_config(),
     )
 
 
