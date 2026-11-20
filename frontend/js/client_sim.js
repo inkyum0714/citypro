@@ -52,6 +52,7 @@ window.clientSim = (() => {
         emergency_flash: src.emergency_flash,
         accident_timer: 0,
         waiting_at_signal: !!src.waiting_at_signal,
+        response_role: src.response_role || null,
         finished: false,
         last_impulse: src.last_impulse || 0,
         collision_partner_id: src.collision_partner_id,
@@ -79,6 +80,7 @@ window.clientSim = (() => {
         local.cargo_classified = src.cargo_classified;
         local.bus_dwell_remaining = src.bus_dwell_remaining;
         local.waiting_at_signal = !!src.waiting_at_signal;
+        local.response_role = src.response_role || null;
         local.rescue_state = src.rescue_state;
         local.emergency_flash = src.emergency_flash;
         if (src.in_accident) {
@@ -170,8 +172,16 @@ window.clientSim = (() => {
         vehicles.forEach((v) => list.push(v));
         const alpha = 1 - Math.exp(-BLEND * dt);
 
+        const traffic = [];
         for (let i = 0; i < list.length; i += 1) {
             const v = list[i];
+            if (v.response_role) {
+                const follow = Math.min(1, dt * 10);
+                v.x += (v.sx - v.x) * follow;
+                v.y += (v.sy - v.y) * follow;
+                continue;
+            }
+            traffic.push(v);
             if (v.in_accident) {
                 window.CityFlowPhysics.dampAccident(v, dt);
                 continue;
@@ -184,7 +194,7 @@ window.clientSim = (() => {
         }
 
         const preset = window.CityFlowPhysics.qualityPreset(quality);
-        const result = window.CityFlowPhysics.settle(list, {
+        const result = window.CityFlowPhysics.settle(traffic, {
             iterations: preset.iterations,
             maxPairs: preset.maxPairs,
             handledPairs,

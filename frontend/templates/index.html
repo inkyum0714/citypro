@@ -197,6 +197,7 @@
                 <button type="button" class="cam-btn" id="cameraFitBtn" data-i18n-title="camera.fit" title="전체 보기">⤢</button>
                 <button type="button" class="cam-btn" id="cameraResetBtn" data-i18n-title="camera.reset" title="줌 리셋">⌂</button>
             </div>
+            <div class="phase-board" id="phaseBoard" hidden></div>
             <div class="canvas-hint" id="canvasHint" data-i18n="canvas.hint">
                 캔버스를 드래그하여 도로를 건설하세요 · 휠 줌 · 우클릭 이동
             </div>
@@ -210,7 +211,7 @@
             <div class="event-buttons" id="eventButtons"></div>
 
             <h3 data-i18n="events.rescue">사고 대응</h3>
-            <p class="panel-desc" data-i18n="events.rescue_desc">충돌 차량은 질량·위치 기반 작용-반작용으로 튕깁니다. 아래 버튼으로 현장을 해결하세요.</p>
+            <p class="panel-desc" data-i18n="events.rescue_desc">사고가 나면 병원·119·112가 자동으로 출동합니다. 아래 버튼은 추가 출동입니다.</p>
             <div class="rescue-buttons">
                 <button class="btn btn-secondary rescue-btn" id="dispatchPoliceBtn" type="button" data-i18n="events.police">🚓 경찰 출동</button>
                 <button class="btn btn-secondary rescue-btn" id="dispatchTowBtn" type="button" data-i18n="events.tow">🚛 견인차</button>
@@ -270,22 +271,12 @@
                     <span data-i18n="road.bidirectional">왕복</span>
                 </label>
             </div>
-            <div class="road-options" id="buildingOptions" hidden>
-                <label class="road-option" for="buildingType">
-                    <span data-i18n="building.type">시설</span>
-                    <select id="buildingType" class="road-select">
-                        <option value="house_detached" data-i18n="building.house_detached">단독주택</option>
-                        <option value="house_town" data-i18n="building.house_town">연립주택</option>
-                        <option value="house_apt" data-i18n="building.house_apt">아파트</option>
-                        <option value="city_hall" data-i18n="building.city_hall">시청</option>
-                        <option value="police" data-i18n="building.police">경찰서</option>
-                        <option value="fire" data-i18n="building.fire">소방서</option>
-                        <option value="school" data-i18n="building.school">학교</option>
-                        <option value="hospital" data-i18n="building.hospital">병원</option>
-                        <option value="market" data-i18n="building.market">마트</option>
-                        <option value="convenience" data-i18n="building.convenience">편의점</option>
-                    </select>
-                </label>
+            <div class="facility-slider" id="buildingOptions" hidden>
+                <span class="facility-label" data-i18n="building.type">시설</span>
+                <button type="button" class="facility-nav" id="buildingPrev" data-i18n-title="facility.prev" title="이전" aria-label="이전">‹</button>
+                <div class="facility-track" id="buildingTrack" tabindex="0"></div>
+                <button type="button" class="facility-nav" id="buildingNext" data-i18n-title="facility.next" title="다음" aria-label="다음">›</button>
+                <input type="hidden" id="buildingType" value="house_detached">
             </div>
             <div class="cargo-panel" id="cargoPanel" hidden>
                 <span data-i18n="cargo.label">화물 분류:</span>

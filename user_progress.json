@@ -320,18 +320,18 @@
     },
     "operator0714": {
       "login_id": "operator0714",
-      "xp": 5,
+      "xp": 10,
       "level": 1,
-      "coins": 155,
+      "coins": 170,
       "streak_days": 1,
-      "last_login_date": "2026-08-11",
+      "last_login_date": "2026-11-17",
       "plan": "free",
       "pro_until": null,
       "owned_items": [],
       "active_cosmetic": "default",
       "boosters": {},
       "daily": {
-        "date": "2026-08-11",
+        "date": "2026-11-18",
         "quests": [
           {
             "id": "build_roads",
@@ -341,7 +341,7 @@
             "metric": "roads_built",
             "reward_coins": 40,
             "reward_xp": 25,
-            "progress": 2.0,
+            "progress": 0,
             "completed": false,
             "claimed": false
           },
@@ -404,24 +404,51 @@
             "progress": 0,
             "completed": false,
             "claimed": false
+          },
+          {
+            "id": "build_city",
+            "label": "도시 건설",
+            "description": "주택·공공·상업 건물 3채 배치",
+            "target": 3,
+            "metric": "buildings_built",
+            "reward_coins": 50,
+            "reward_xp": 35,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
+          },
+          {
+            "id": "crosswalks",
+            "label": "횡단보도",
+            "description": "횡단보도 2곳 설치",
+            "target": 2,
+            "metric": "crosswalks_built",
+            "reward_coins": 40,
+            "reward_xp": 25,
+            "progress": 0,
+            "completed": false,
+            "claimed": false
           }
         ],
         "all_complete_bonus_claimed": false
       },
       "lifetime": {
-        "roads_built": 4.0,
-        "vehicles_spawned": 5.0,
-        "trips_completed": 2.0,
+        "roads_built": 5.0,
+        "vehicles_spawned": 10.0,
+        "trips_completed": 4.0,
         "events_triggered": 0,
-        "play_seconds": 425.6340000000025
+        "play_seconds": 2101.2133502674146,
+        "golden_flow_seconds": 0.46200000000000013
       },
       "weekly_xp": 5,
-      "week_id": "2026-W33",
+      "week_id": "2026-W47",
       "achievements": [
         "first_road"
       ],
       "city_saves": {},
-      "leaderboard_score": 5
+      "leaderboard_score": 10,
+      "ranked_score": 35,
+      "ranked_season_id": "2026-W47"
     },
     "operator": {
       "login_id": "operator",

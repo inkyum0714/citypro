@@ -166,7 +166,11 @@ class GoldenHourTracker:
 
     def tick(self, vehicles: list[Vehicle], dt: float) -> float:
         """이번 틱에서 새로 쌓인 골든 초를 반환 (퀘스트 진행용)."""
-        active = [v for v in vehicles if not v.finished and not v.in_accident]
+        active = [
+            v
+            for v in vehicles
+            if not v.finished and not v.in_accident and not getattr(v, "response_role", None)
+        ]
         if len(active) < 2:
             self.streak_seconds = 0.0
             self.active = False

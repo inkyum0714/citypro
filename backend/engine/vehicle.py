@@ -188,6 +188,9 @@ class Vehicle:
         self.state = "moving"
         self.wait_timer = 0.0
         self.emergency_flash = self.vehicle_type == "emergency"
+        self.response_role: str | None = None
+        self.response_tx = 0.0
+        self.response_ty = 0.0
         self.cargo_type: str | None = None
         self.cargo_classified = True
         self.bus_dwell_remaining = 0.0
@@ -433,6 +436,7 @@ class Vehicle:
             "vy": round(getattr(self, "vy", 0.0), 2),
             "space_occupancy": round(getattr(self, "space_occupancy", 1.0), 2),
             "waiting_at_signal": bool(getattr(self, "waiting_at_signal", False)),
+            "response_role": getattr(self, "response_role", None),
         }
         if slim:
             return payload

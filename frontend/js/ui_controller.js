@@ -89,7 +89,88 @@ document.querySelectorAll('.tool-btn').forEach((button) => {
     });
 });
 
+const BUILDING_ICONS = {
+    house_detached: '🏠',
+    house_town: '🏘️',
+    house_apt: '🏢',
+    villa: '🏡',
+    officetel: '🏙️',
+    city_hall: '🏛️',
+    police: '🚓',
+    fire: '🚒',
+    school: '🏫',
+    hospital: '🏥',
+    library: '📚',
+    park: '🌳',
+    market: '🛒',
+    convenience: '🏪',
+    pharmacy: '💊',
+    restaurant: '🍽️',
+    office: '💼',
+    hotel: '🏨',
+    gas_station: '⛽',
+    factory: '🏭',
+};
+
+const DEFAULT_BUILDINGS = [
+    { id: 'house_detached', fill: '#fbbf24' },
+    { id: 'house_town', fill: '#fb923c' },
+    { id: 'house_apt', fill: '#64748b' },
+    { id: 'villa', fill: '#f59e0b' },
+    { id: 'officetel', fill: '#94a3b8' },
+    { id: 'city_hall', fill: '#1d4ed8' },
+    { id: 'police', fill: '#1e40af' },
+    { id: 'fire', fill: '#b91c1c' },
+    { id: 'school', fill: '#0d9488' },
+    { id: 'hospital', fill: '#e11d48' },
+    { id: 'library', fill: '#0f766e' },
+    { id: 'park', fill: '#4ade80' },
+    { id: 'market', fill: '#16a34a' },
+    { id: 'convenience', fill: '#22c55e' },
+    { id: 'pharmacy', fill: '#2dd4bf' },
+    { id: 'restaurant', fill: '#fb7185' },
+    { id: 'office', fill: '#0284c7' },
+    { id: 'hotel', fill: '#7c3aed' },
+    { id: 'gas_station', fill: '#facc15' },
+    { id: 'factory', fill: '#78716c' },
+];
+
 let selectedTruckId = null;
+
+const renderBuildingSlider = (catalog) => {
+    const track = document.getElementById('buildingTrack');
+    const hidden = document.getElementById('buildingType');
+    if (!track || !hidden) return;
+    const items = (catalog && catalog.length ? catalog : DEFAULT_BUILDINGS).map((item) => ({
+        id: item.id,
+        fill: item.fill || '#64748b',
+    }));
+    const selected = hidden.value || items[0]?.id;
+    track.innerHTML = items.map((item) => `
+        <button type="button" class="facility-card${item.id === selected ? ' active' : ''}" data-building="${item.id}">
+            <span class="swatch" style="background:${item.fill}"></span>
+            <span class="name">${BUILDING_ICONS[item.id] || '🏢'} ${window.t(`building.${item.id}`, item.id)}</span>
+        </button>
+    `).join('');
+    track.querySelectorAll('.facility-card').forEach((card) => {
+        card.addEventListener('click', () => {
+            hidden.value = card.dataset.building || 'house_detached';
+            track.querySelectorAll('.facility-card').forEach((el) => el.classList.remove('active'));
+            card.classList.add('active');
+        });
+    });
+};
+
+const scrollBuildingTrack = (direction) => {
+    const track = document.getElementById('buildingTrack');
+    if (!track) return;
+    track.scrollBy({ left: direction * 104, behavior: 'smooth' });
+};
+
+document.getElementById('buildingPrev')?.addEventListener('click', () => scrollBuildingTrack(-1));
+document.getElementById('buildingNext')?.addEventListener('click', () => scrollBuildingTrack(1));
+renderBuildingSlider();
+window.addEventListener('cityflow:lang', () => renderBuildingSlider(window.uiController?.buildingCatalog));
 
 const getSpawnVehicleType = () => {
     const value = document.getElementById('spawnVehicleType')?.value || 'random';
@@ -367,5 +448,6 @@ window.uiController = {
     },
 };
 
+window.uiController.renderBuildingSlider = renderBuildingSlider;
 window.uiController.bindControls();
 window.simulationCamera.bind(canvas);

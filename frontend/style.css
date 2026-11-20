@@ -439,6 +439,43 @@ body.has-top-ad .app-shell {
     overflow: auto;
 }
 
+.panel::-webkit-scrollbar,
+.modal-card::-webkit-scrollbar,
+body.public-page::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.panel::-webkit-scrollbar-button,
+.modal-card::-webkit-scrollbar-button,
+body.public-page::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.panel::-webkit-scrollbar-track,
+.modal-card::-webkit-scrollbar-track,
+body.public-page::-webkit-scrollbar-track {
+    margin: 8px 0;
+    background: #12182e;
+    border-radius: 99px;
+}
+
+.panel::-webkit-scrollbar-thumb,
+.modal-card::-webkit-scrollbar-thumb,
+body.public-page::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #9eb6ff, #3b6ef5);
+    border: 2px solid #12182e;
+    border-radius: 99px;
+}
+
+.panel::-webkit-scrollbar-thumb:hover,
+.modal-card::-webkit-scrollbar-thumb:hover,
+body.public-page::-webkit-scrollbar-thumb:hover {
+    background: #dbe6ff;
+}
+
 .panel h2,
 .panel h3 {
     margin: 0 0 12px;
@@ -1427,6 +1464,172 @@ body[data-cosmetic="neon"] .brand h1 {
 
 .road-check input {
     accent-color: #5b8cff;
+}
+
+.facility-slider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 560px;
+    margin: 0 8px;
+}
+
+.facility-label {
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.facility-nav {
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    color: #e2e8f0;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.facility-nav:hover {
+    border-color: #5b8cff;
+    color: #dbeafe;
+}
+
+.facility-track {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    flex: 1;
+    min-width: 0;
+    padding: 2px;
+}
+
+.facility-track::-webkit-scrollbar {
+    display: none;
+}
+
+.facility-card {
+    scroll-snap-align: start;
+    flex: 0 0 96px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 8px 7px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(15, 23, 42, 0.2)),
+        #0f172a;
+    color: #e2e8f0;
+    cursor: pointer;
+    text-align: left;
+}
+
+.facility-card .swatch {
+    width: 100%;
+    height: 8px;
+    border-radius: 99px;
+}
+
+.facility-card .name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.facility-card.active {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 1px #5b8cff, 0 8px 18px rgba(37, 99, 235, 0.25);
+}
+
+.phase-board {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 4;
+    display: flex;
+    gap: 8px;
+    max-width: min(680px, calc(100% - 24px));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    pointer-events: auto;
+}
+
+.phase-board::-webkit-scrollbar {
+    display: none;
+}
+
+.phase-card {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(15, 23, 42, 0.88);
+    box-shadow: 0 10px 24px rgba(2, 6, 23, 0.35);
+}
+
+.phase-card header {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+}
+
+.phase-lamps {
+    display: flex;
+    gap: 6px;
+}
+
+.phase-lamp {
+    width: 18px;
+    height: 46px;
+    border-radius: 9px;
+    background: #020617;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 3px;
+}
+
+.phase-lamp i {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #1e293b;
+}
+
+.phase-lamp.green i:nth-child(3) {
+    background: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+}
+
+.phase-lamp.yellow i:nth-child(2) {
+    background: #eab308;
+    box-shadow: 0 0 8px #eab308;
+}
+
+.phase-lamp.red i:nth-child(1),
+.phase-lamp.walk i:nth-child(1) {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+.phase-lamp.walk {
+    box-shadow: inset 0 0 0 1px #38bdf8;
 }
 
 .tool-btn,

@@ -26,8 +26,50 @@ class CityPhaseTests(unittest.TestCase):
         self.assertGreater(self.mgr.buildings.trip_demand(), 8)
         again = self.mgr.add_building_at(220, 18, "city_hall")
         self.assertIsNone(again)
-        for key in ("house_detached", "house_town", "house_apt", "city_hall", "police", "fire", "school", "hospital", "market", "convenience"):
+        for key in (
+            "house_detached", "house_town", "house_apt", "villa", "officetel",
+            "city_hall", "police", "fire", "school", "hospital", "library", "park",
+            "market", "convenience", "pharmacy", "restaurant", "office", "hotel",
+            "gas_station", "factory",
+        ):
             self.assertIn(key, BUILDING_CATALOG)
+
+    def test_per_approach_phases_split_axes(self):
+        mgr = TrafficManager()
+        mgr.add_road([0, 200], [400, 200])
+        mgr.add_road([200, 0], [200, 400])
+        lights = list(mgr.signals.lights.values())
+        self.assertGreaterEqual(len(lights), 1)
+        junction = max(lights, key=lambda light: len(light.approaches))
+        self.assertGreaterEqual(len(junction.approaches), 3)
+        self.assertEqual({ap["axis"] for ap in junction.approaches}, {0, 1})
+        junction.phase = "a_green"
+        by_axis = {ap["axis"]: junction.state_for(ap["edge_id"]) for ap in junction.approaches}
+        self.assertEqual(by_axis[0], "green")
+        self.assertEqual(by_axis[1], "red")
+        junction.phase = "b_green"
+        by_axis = {ap["axis"]: junction.state_for(ap["edge_id"]) for ap in junction.approaches}
+        self.assertEqual(by_axis[0], "red")
+        self.assertEqual(by_axis[1], "green")
+
+    def test_crash_dispatches_hospital_119_112(self):
+        mgr = TrafficManager()
+        mgr.add_road([0, 0], [400, 0])
+        self.assertIsNotNone(mgr.add_building_at(40, 18, "police"))
+        self.assertIsNotNone(mgr.add_building_at(140, 18, "fire"))
+        self.assertIsNotNone(mgr.add_building_at(240, 18, "hospital"))
+        road = mgr.road_network.roads[0]
+        a = mgr.create_vehicle_on_edge(road, lane_index=0, progress=0.4)
+        b = mgr.create_vehicle_on_edge(road, lane_index=0, progress=0.45)
+        a.x, a.y = 160.0, 0.0
+        b.x, b.y = 168.0, 0.0
+        applied = mgr.collisions.apply_client_reports([{"id_a": a.id, "id_b": b.id, "impulse": 40.0}])
+        self.assertEqual(applied, 1)
+        roles = {v.response_role for v in mgr.vehicles if getattr(v, "response_role", None)}
+        self.assertEqual(roles, {"112", "119", "hospital"})
+        for _ in range(30):
+            mgr.collisions.tick(0.5)
+        self.assertEqual(mgr.collisions.open_accident_count(), 0)
 
     def test_crosswalk_yields_when_pedestrian(self):
         walk = self.mgr.add_crosswalk_at(160, 0)

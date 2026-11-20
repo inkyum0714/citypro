@@ -377,29 +377,44 @@ window.canvasRenderer = {
         ctx.restore();
     },
 
-    _drawTrafficLight(ctx, light) {
+    _drawLamp(ctx, x, y, state) {
         const colors = {
             green: '#22c55e',
             yellow: '#eab308',
             red: '#ef4444',
             walk: '#38bdf8',
         };
-        const fill = colors[light.state] || (light.pedestrian ? '#38bdf8' : colors.red);
+        const fill = colors[state] || colors.red;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(light.x, light.y - 16, 7, 0, Math.PI * 2);
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
         ctx.fill();
         ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(light.x, light.y - 16, 4.5, 0, Math.PI * 2);
+        ctx.arc(x, y, 4.5, 0, Math.PI * 2);
         ctx.fillStyle = fill;
         ctx.shadowColor = fill;
-        ctx.shadowBlur = (light.state === 'green' && this._quality === 'high') ? 10 : 0;
+        ctx.shadowBlur = (state === 'green' && this._quality === 'high') ? 10 : 0;
         ctx.fill();
         ctx.restore();
+    },
+
+    _drawTrafficLight(ctx, light) {
+        const approaches = light.approaches || [];
+        if (!approaches.length) {
+            this._drawLamp(ctx, light.x, light.y - 16, light.state);
+            return;
+        }
+        for (let i = 0; i < approaches.length; i += 1) {
+            const approach = approaches[i];
+            const angle = approach.angle || 0;
+            const x = light.x - Math.cos(angle) * 18;
+            const y = light.y - Math.sin(angle) * 18;
+            this._drawLamp(ctx, x, y, approach.state);
+        }
     },
 
     _drawNetworkNodes(ctx, nodes, roads, networkRev) {
@@ -553,6 +568,14 @@ window.canvasRenderer = {
             for (let i = -0.2; i <= 0.25; i += 0.18) {
                 ctx.fillRect(length * i, -width * 0.32, length * 0.08, width * 0.64);
             }
+        }
+
+        if (vehicle.response_role) {
+            const mark = { '112': '112', '119': '119', hospital: '병원' }[vehicle.response_role] || '';
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 8px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(mark, 0, -width - 6);
         }
 
         if (vehicle.emergency_flash && Math.sin(this.animationPhase * 4) > 0) {

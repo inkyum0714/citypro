@@ -14,7 +14,7 @@ from engine.lane_controller import LaneController
 from engine.road_network import RoadNetwork
 from engine.road_segment import RoadSegment
 from engine.routing_service import RoutingService
-from engine.traffic_light import SignalController
+from engine.traffic_light import SignalController, signal_should_stop
 from engine.spatial_index import VehicleSpatialIndex
 from engine.vehicle_physics import avoidance_constraints
 from engine.vehicle import Vehicle
@@ -135,7 +135,7 @@ class TrafficManager:
             segment.clear_vehicles()
         self._spatial.rebuild(self.vehicles)
         for vehicle in self.vehicles:
-            if vehicle.finished:
+            if vehicle.finished or getattr(vehicle, "response_role", None):
                 continue
             segment = self._segments.get(vehicle.road_id)
             if segment is not None:
@@ -198,18 +198,19 @@ class TrafficManager:
         self.router.reroute_network_changed()
         return edge
 
-    def _approach_counts_for_signals(self) -> dict[int, int]:
-        counts: dict[int, int] = {}
+    def _approach_counts_for_signals(self) -> dict[tuple[int, int], int]:
+        counts: dict[tuple[int, int], int] = {}
         stop_window = float(get_variable("phase4", "stop_line_offset_from_exit", 22.0))
         for vehicle in self.vehicles:
-            if vehicle.finished:
+            if vehicle.finished or getattr(vehicle, "response_role", None):
                 continue
             node_id = int(vehicle.exit_node_id)
             if self.signals.get_light(node_id) is None:
                 continue
             dist = self.router.distance_to_stop_line(vehicle)
             if dist <= stop_window * 2.5:
-                counts[node_id] = counts.get(node_id, 0) + 1
+                key = (node_id, int(vehicle.road_id))
+                counts[key] = counts.get(key, 0) + 1
         return counts
 
     def create_vehicle_on_edge(
@@ -314,11 +315,17 @@ class TrafficManager:
             lead_length = lead.length
 
         if self._use_signals:
-            ignore = vehicle.vehicle_type == "emergency" and self._emergency_ignore_signal
-            light = self.signals.get_light(vehicle.exit_node_id)
-            if light is not None and not ignore:
+            ignore = (
+                vehicle.vehicle_type == "emergency" or getattr(vehicle, "response_role", None)
+            ) and self._emergency_ignore_signal
+            signal_state = self.signals.state_for(int(vehicle.exit_node_id), int(vehicle.road_id))
+            if signal_state is not None and not ignore:
                 stop_dist = self.router.distance_to_stop_line(vehicle)
-                if light.should_stop(stop_dist, vehicle.current_speed) and stop_dist > 0.5 and stop_dist < gap:
+                if (
+                    signal_should_stop(signal_state, stop_dist, vehicle.current_speed)
+                    and stop_dist > 0.5
+                    and stop_dist < gap
+                ):
                     vehicle.waiting_at_signal = True
                     gap, lead_speed, lead_length = stop_dist, 0.0, self._idm_default_lead_length
                 else:
@@ -349,7 +356,7 @@ class TrafficManager:
     def _handle_edge_transitions(self) -> None:
         """progress≥1인 차량의 도착 소멸 또는 다음 Edge 전환."""
         for vehicle in self.vehicles:
-            if vehicle.finished or vehicle.progress < 1.0:
+            if vehicle.finished or vehicle.progress < 1.0 or getattr(vehicle, "response_role", None):
                 continue
             # 도로 끝=도착 모드이거나 라우팅 사용 시 라우터에 위임
             if self._edge_end_is_destination or self._use_routing:
@@ -391,12 +398,14 @@ class TrafficManager:
         self._rebuild_segment_vehicles()
 
         for vehicle in self.vehicles:
-            if getattr(vehicle, "in_accident", False):
+            if getattr(vehicle, "in_accident", False) or getattr(vehicle, "response_role", None):
                 continue
             speed_factor = self.event_manager.get_speed_factor(vehicle.road_id, vehicle.progress)
             self.lane_controller.tick(vehicle, dt, speed_factor=speed_factor)
 
         for vehicle in self.vehicles:
+            if getattr(vehicle, "response_role", None):
+                continue
             if getattr(vehicle, "in_accident", False):
                 # 사고 차량: 작용-반작용 잔여 속도만 감쇠
                 vehicle.update_position(dt, speed_factor=0.0, lead_gap=0.5, lead_speed=0.0)
@@ -427,22 +436,23 @@ class TrafficManager:
         golden_delta = self.golden_hour.tick(self.vehicles, dt)
 
         finished = [vehicle for vehicle in self.vehicles if vehicle.finished]
-        self.total_completed += len(finished)
-        for _ in finished:
+        trips = [vehicle for vehicle in finished if not getattr(vehicle, "response_role", None)]
+        self.total_completed += len(trips)
+        for _ in trips:
             self.analytics.on_trip_completed()
-        self.analytics.tick(self.sim_time, self, completed_this_frame=len(finished))
+        self.analytics.tick(self.sim_time, self, completed_this_frame=len(trips))
         self.vehicles = [vehicle for vehicle in self.vehicles if not vehicle.finished]
         if finished:
             self._mark_segments_dirty()
 
         self.frame_metrics = {
-            "trips_completed": float(len(finished)),
+            "trips_completed": float(len(trips)),
             "golden_flow_seconds": float(golden_delta),
             "accidents_cleared": float(cleared_delta),
             "bus_boardings": 0.0,
         }
         if self.stage_id:
-            self._bump_stage("trips_completed", len(finished))
+            self._bump_stage("trips_completed", len(trips))
             self._bump_stage("golden_flow_seconds", golden_delta)
             self._bump_stage("accidents_cleared", cleared_delta)
 
@@ -455,7 +465,10 @@ class TrafficManager:
         """이벤트를 등록합니다. road_id가 없으면 임의 도로."""
         if road_id is None and self.road_network.roads:
             road_id = random.choice(self.road_network.roads)["id"]
-        return self.event_manager.add_event(event_type, road_id=road_id, message=message)
+        event = self.event_manager.add_event(event_type, road_id=road_id, message=message)
+        if event is not None and event_type == "accident":
+            self.collisions.ensure_dispatch_for_road(event.road_id, progress=float(event.progress))
+        return event
 
     def _bump_stage(self, metric: str, amount: float) -> None:
         if not self.stage_id or amount <= 0:
@@ -576,9 +589,13 @@ class TrafficManager:
 
         per_road: dict[int, float] = {}
         for vehicle in self.vehicles:
+            if getattr(vehicle, "response_role", None):
+                continue
             occ = float(getattr(vehicle, "space_occupancy", 1.0) or 1.0)
             per_road[vehicle.road_id] = per_road.get(vehicle.road_id, 0.0) + occ
 
+        if not per_road:
+            return 0.0
         normalizer = self._congestion_normalizer
         max_density = max(per_road.values())
         return min(1.0, max_density / normalizer)

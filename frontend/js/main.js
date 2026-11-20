@@ -49,6 +49,15 @@ window.uiBridge = {
             window.uiController?.updateAccidentStatus?.(merged);
             window.analyticsPanel?.update(merged);
             window.engagementPanel?.update(merged);
+            this.updatePhaseBoard(merged);
+            if (
+                merged.building_catalog
+                && window.uiController
+                && merged.building_catalog !== window.uiController.buildingCatalog
+            ) {
+                window.uiController.buildingCatalog = merged.building_catalog;
+                window.uiController.renderBuildingSlider?.(merged.building_catalog);
+            }
 
             if (merged.event_catalog && !window.uiController?.catalogRendered) {
                 window.uiController.renderEventButtons(merged.event_catalog);
@@ -94,6 +103,42 @@ window.uiBridge = {
         document.getElementById('statusLine').textContent = stats.is_paused
             ? window.t('status.paused')
             : window.t('status.running', { n: stats.active_vehicles ?? 0 });
+    },
+
+    updatePhaseBoard(state) {
+        const board = document.getElementById('phaseBoard');
+        if (!board) return;
+        const lights = state.traffic_lights || [];
+        const signature = lights.map((light) => {
+            const approaches = light.approaches || [];
+            return `${light.node_id}:${approaches.map((item) => item.state).join('')}:${light.phase || light.state}`;
+        }).join('|');
+        if (signature === this._phaseSignature) return;
+        this._phaseSignature = signature;
+        if (!lights.length) {
+            board.hidden = true;
+            board.innerHTML = '';
+            return;
+        }
+        board.hidden = false;
+        board.innerHTML = lights.map((light) => {
+            const approaches = light.approaches || [];
+            const lamps = approaches.length
+                ? approaches
+                : [{ state: light.state || 'red', edge_id: light.node_id }];
+            return `
+                <article class="phase-card">
+                    <header>${window.t('signal.node', { n: light.node_id })}</header>
+                    <div class="phase-lamps">
+                        ${lamps.map((approach) => `
+                            <div class="phase-lamp ${approach.state || 'red'}" title="${approach.edge_id ?? ''}">
+                                <i></i><i></i><i></i>
+                            </div>
+                        `).join('')}
+                    </div>
+                </article>
+            `;
+        }).join('');
     },
 
     updateEvents(state) {

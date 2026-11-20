@@ -25,7 +25,10 @@
     "collision_restitution": 0.25,
     "accident_event_cooldown": 4.0,
     "police_response_seconds": 3.5,
-    "tow_response_seconds": 5.0
+    "tow_response_seconds": 5.0,
+    "response_speed": 78.0,
+    "response_arrival_radius": 16.0,
+    "response_timeout_seconds": 14.0
   },
   "vehicle_types": {
     "car": {

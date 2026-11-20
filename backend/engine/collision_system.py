@@ -26,6 +26,7 @@ class CollisionSystem:
         self._cooldown = 0.0
         self.active_accidents: list[dict[str, Any]] = []
         self._rescue_queue: list[dict[str, Any]] = []
+        self._active_dispatch: dict[str, Any] | None = None
 
     def tick(self, dt: float) -> list[dict[str, Any]]:
         if self._cooldown > 0:
@@ -33,6 +34,7 @@ class CollisionSystem:
         accidents: list[dict[str, Any]] = []
         if not getattr(self.manager, "_client_physics", True):
             accidents = self._scan_collisions()
+        self._tick_responders(dt)
         self._tick_rescue(dt)
         return accidents
 
@@ -49,8 +51,12 @@ class CollisionSystem:
             neighbors = (
                 spatial.nearby(a.x, a.y, radius) if spatial is not None else vehicles
             )
+            if getattr(a, "response_role", None):
+                continue
             for b in neighbors:
                 if b.id <= a.id or b.finished or getattr(b, "in_accident", False):
+                    continue
+                if getattr(b, "response_role", None):
                     continue
                 pair = (a.id, b.id)
                 if pair in seen or pair in self._handled_pairs:
@@ -84,6 +90,8 @@ class CollisionSystem:
                 continue
             if getattr(a, "in_accident", False) or getattr(b, "in_accident", False):
                 continue
+            if getattr(a, "response_role", None) or getattr(b, "response_role", None):
+                continue
             pair = (min(a.id, b.id), max(a.id, b.id))
             if pair in self._handled_pairs:
                 continue
@@ -109,6 +117,7 @@ class CollisionSystem:
             "rescue": None,
         }
         self.active_accidents.append(record)
+        self._begin_or_join_dispatch(record["vehicle_ids"], int(a.road_id), self._centroid(record["vehicle_ids"]))
         if self._cooldown <= 0:
             event = self.manager.trigger_event(
                 "accident",
@@ -246,6 +255,178 @@ class CollisionSystem:
     def clear_stale_pairs(self) -> None:
         active = {v.id for v in self.manager.vehicles}
         self._handled_pairs = {p for p in self._handled_pairs if p[0] in active and p[1] in active}
+
+    def ensure_dispatch_for_road(self, road_id: int | None, progress: float = 0.5) -> None:
+        """사고 이벤트에 병원·119·112 출동이 없으면 보냅니다."""
+        if self._active_dispatch is not None:
+            return
+        ids = self._accident_vehicle_ids(int(road_id) if road_id is not None else None)
+        road = None
+        if road_id is not None:
+            road = self.manager.road_network.get_road(int(road_id))
+        if road is None and self.manager.road_network.roads:
+            road = self.manager.road_network.roads[0]
+        if road is None:
+            return
+        if ids:
+            self._begin_or_join_dispatch(ids, int(road["id"]), self._centroid(ids))
+            return
+        t = max(0.05, min(0.95, float(progress or 0.5)))
+        x = float(road["start"][0]) + (float(road["end"][0]) - float(road["start"][0])) * t
+        y = float(road["start"][1]) + (float(road["end"][1]) - float(road["start"][1])) * t
+        self._begin_or_join_dispatch([], int(road["id"]), (x, y))
+
+    def _centroid(self, vehicle_ids: list[int]) -> tuple[float, float]:
+        points = [(v.x, v.y) for v in self.manager.vehicles if v.id in set(vehicle_ids)]
+        if not points:
+            return 0.0, 0.0
+        return sum(p[0] for p in points) / len(points), sum(p[1] for p in points) / len(points)
+
+    def _nearest_building(self, building_type: str, x: float, y: float) -> dict[str, Any] | None:
+        best: dict[str, Any] | None = None
+        best_d = 1e18
+        for building in self.manager.buildings.buildings:
+            if building.get("type") != building_type:
+                continue
+            dist = math.hypot(float(building["x"]) - x, float(building["y"]) - y)
+            if dist < best_d:
+                best = building
+                best_d = dist
+        return best
+
+    def _begin_or_join_dispatch(
+        self,
+        vehicle_ids: list[int],
+        road_id: int,
+        target: tuple[float, float],
+    ) -> None:
+        tx, ty = target
+        if self._active_dispatch is not None:
+            job = self._active_dispatch
+            for vid in vehicle_ids:
+                if vid not in job["vehicle_ids"]:
+                    job["vehicle_ids"].append(vid)
+            job["tx"], job["ty"] = tx, ty
+            for vehicle in self.manager.vehicles:
+                if getattr(vehicle, "response_role", None):
+                    vehicle.response_tx = tx
+                    vehicle.response_ty = ty
+            return
+
+        specs = (
+            ("112", "police", "#1d4ed8", (-70.0, -36.0), "police_response", "112 출동"),
+            ("119", "fire", "#dc2626", (74.0, -28.0), "fire_response", "119 출동"),
+            ("hospital", "hospital", "#f8fafc", (8.0, 68.0), "ambulance", "병원 구급차 출동"),
+        )
+        responder_ids: list[int] = []
+        needed: set[str] = set()
+        road = self.manager.road_network.get_road(road_id)
+        if road is None and self.manager.road_network.roads:
+            road = self.manager.road_network.roads[0]
+        if road is None:
+            return
+        for role, building_type, color, offset, event_type, label in specs:
+            building = self._nearest_building(building_type, tx, ty)
+            if building is not None:
+                ox, oy = float(building["x"]), float(building["y"])
+                origin = str(building.get("label") or building_type)
+                spawn_road = self.manager.road_network.get_road(int(building["road_id"])) or road
+            else:
+                ox, oy = tx + offset[0], ty + offset[1]
+                origin = {"112": "112", "119": "119", "hospital": "병원"}[role]
+                spawn_road = road
+            vehicle = self.manager.create_vehicle_on_edge(
+                spawn_road,
+                vehicle_type="emergency",
+                progress=0.35,
+            )
+            vehicle.response_role = role
+            vehicle.response_tx = tx
+            vehicle.response_ty = ty
+            vehicle.x = ox
+            vehicle.y = oy
+            vehicle.color = color
+            vehicle.emergency_flash = True
+            vehicle.state = "responding"
+            vehicle.progress = 0.35
+            vehicle.current_speed = float(get_variable("vehicle", "response_speed", 78.0))
+            responder_ids.append(vehicle.id)
+            needed.add(role)
+            self.manager.event_manager.add_event(
+                event_type,
+                road_id=road_id,
+                progress=0.5,
+                message=f"{label} — {origin}에서 현장으로",
+            )
+        if not responder_ids:
+            return
+        self._active_dispatch = {
+            "vehicle_ids": list(vehicle_ids),
+            "responder_ids": responder_ids,
+            "needed": needed,
+            "arrived": set(),
+            "tx": tx,
+            "ty": ty,
+            "road_id": road_id,
+            "elapsed": 0.0,
+        }
+        self.manager._mark_segments_dirty()
+
+    def _tick_responders(self, dt: float) -> None:
+        job = self._active_dispatch
+        if job is None:
+            return
+        job["elapsed"] = float(job.get("elapsed", 0.0)) + dt
+        arrived: set[str] = job.setdefault("arrived", set())
+        speed = float(get_variable("vehicle", "response_speed", 78.0))
+        radius = float(get_variable("vehicle", "response_arrival_radius", 16.0))
+        timeout = float(get_variable("vehicle", "response_timeout_seconds", 14.0))
+        for vehicle in self.manager.vehicles:
+            if not getattr(vehicle, "response_role", None) or vehicle.finished:
+                continue
+            dx = float(job["tx"]) - vehicle.x
+            dy = float(job["ty"]) - vehicle.y
+            dist = math.hypot(dx, dy)
+            if dist < radius or float(job["elapsed"]) >= timeout:
+                arrived.add(str(vehicle.response_role))
+                vehicle.current_speed = 0.0
+                vehicle.vx = 0.0
+                vehicle.vy = 0.0
+                vehicle.state = "on_scene"
+                continue
+            step = min(dist, speed * dt)
+            vehicle.x += dx / dist * step
+            vehicle.y += dy / dist * step
+            vehicle.angle = math.atan2(dy, dx)
+            vehicle.vx = dx / dist * speed
+            vehicle.vy = dy / dist * speed
+            vehicle.current_speed = speed
+            vehicle.progress = 0.35
+            vehicle.state = "responding"
+        needed: set[str] = set(job.get("needed") or [])
+        if needed and needed <= arrived:
+            self._complete_dispatch()
+        elif float(job["elapsed"]) >= timeout and arrived:
+            self._complete_dispatch()
+
+    def _complete_dispatch(self) -> None:
+        job = self._active_dispatch
+        if job is None:
+            return
+        ids = list(job.get("vehicle_ids") or [])
+        self._active_dispatch = None
+        if ids:
+            self._finish_rescue({"mode": "police", "vehicle_ids": ids, "eta": 0})
+            self.manager.event_manager.push_message("112·119·병원 도착 — 현장 정리", icon="🚑")
+        else:
+            self.manager.event_manager.push_message("112·119·병원 도착", icon="🚑")
+        responder_ids = set(job.get("responder_ids") or [])
+        for vehicle in self.manager.vehicles:
+            if vehicle.id in responder_ids:
+                vehicle.finished = True
+                vehicle.state = "arrived"
+                vehicle.current_speed = 0.0
+        self.manager._mark_segments_dirty()
 
     def to_dict(self) -> dict[str, Any]:
         return {

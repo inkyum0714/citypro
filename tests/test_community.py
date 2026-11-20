@@ -29,8 +29,8 @@ class CommunityFeedTests(unittest.TestCase):
     def test_guide_labels_node_wide_signals(self):
         client = create_app().test_client()
         html = client.get("/guide").get_data(as_text=True)
-        self.assertIn("교차로(노드) 전체 공통", html)
-        self.assertIn("접근로별 위상은 아직 없습니다", html)
+        self.assertIn("맞은편 접근로는 함께 녹색", html)
+        self.assertIn("교차 방향은 적색", html)
 
 
 if __name__ == "__main__":

@@ -159,11 +159,27 @@ class PygameViewer:
         pygame.draw.line(screen, (71, 85, 105), (sx, sy), (ex, ey), max(1, int(width)))
 
     def _draw_light(self, screen: pygame.Surface, light: dict[str, Any]) -> None:
-        colors = {"green": (34, 197, 94), "yellow": (234, 179, 8), "red": (239, 68, 68)}
-        x, y = self._w2s(light["x"], light["y"] - 16)
-        color = colors.get(light.get("state"), (239, 68, 68))
-        pygame.draw.circle(screen, (15, 23, 42), (int(x), int(y)), max(4, int(7 * self.camera.zoom)))
-        pygame.draw.circle(screen, color, (int(x), int(y)), max(3, int(4.5 * self.camera.zoom)))
+        colors = {
+            "green": (34, 197, 94),
+            "yellow": (234, 179, 8),
+            "red": (239, 68, 68),
+            "walk": (56, 189, 248),
+        }
+        approaches = light.get("approaches") or []
+        if not approaches:
+            x, y = self._w2s(light["x"], light["y"] - 16)
+            color = colors.get(light.get("state"), (239, 68, 68))
+            pygame.draw.circle(screen, (15, 23, 42), (int(x), int(y)), max(4, int(7 * self.camera.zoom)))
+            pygame.draw.circle(screen, color, (int(x), int(y)), max(3, int(4.5 * self.camera.zoom)))
+            return
+        for approach in approaches:
+            angle = float(approach.get("angle") or 0.0)
+            wx = float(light["x"]) - math.cos(angle) * 18
+            wy = float(light["y"]) - math.sin(angle) * 18
+            x, y = self._w2s(wx, wy)
+            color = colors.get(approach.get("state"), (239, 68, 68))
+            pygame.draw.circle(screen, (15, 23, 42), (int(x), int(y)), max(4, int(7 * self.camera.zoom)))
+            pygame.draw.circle(screen, color, (int(x), int(y)), max(3, int(4.5 * self.camera.zoom)))
 
     def _draw_vehicle(self, screen: pygame.Surface, vehicle: dict[str, Any]) -> None:
         x, y = self._w2s(vehicle["x"], vehicle["y"])
